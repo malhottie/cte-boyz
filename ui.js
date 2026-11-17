@@ -29,13 +29,20 @@ export function av(t, cls = "") {
   return `<i class="avw ${cls} ${crownOwner && String(t.ownerId) === String(crownOwner) ? "crown" : ""}" data-o="${esc(t.ownerId ?? "")}">${inner}</i>`;
 }
 // Win-chance bar with each side labelled and colour-keyed
+// Tug-of-war win bar: the fill starts at the centre and grows toward the favourite.
+// A 100% favourite fills its whole half; a coin flip shows no fill. The colour is fixed to the
+// track (red at the centre, orange, warm yellow at the ends), so a bigger edge reveals more yellow.
 export function winBar(nameA, nameB, p, mid = "") {
-  const dot = (c) => `<i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};flex:none"></i>`;
-  return `<div class="meter" style="margin-top:8px;background:var(--warn)"><i style="left:0;width:${p * 100}%"></i></div>
+  const edge = Math.abs(p - 0.5) * 100; // % of the full track (max 50 = one whole half)
+  const left = p > 0.5 ? edge : 0, right = p < 0.5 ? edge : 0;
+  const favA = p > 0.5, favB = p < 0.5;
+  const side = (name, q, fav, alignEnd) => `<span class="row" style="gap:5px;flex-wrap:nowrap;min-width:0;${alignEnd ? "justify-content:flex-end" : ""}">${alignEnd ? "" : `<b class="${fav ? "wb-fav" : "mut"}">${pct(q)}</b>`}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${fav ? "font-weight:700" : ""}" class="${fav ? "" : "mut"}">${esc(name)}</span>${alignEnd ? `<b class="${fav ? "wb-fav" : "mut"}">${pct(q)}</b>` : ""}</span>`;
+  return `<div class="wbar" title="${esc(nameA)} ${pct(p)} · ${esc(nameB)} ${pct(1 - p)}">
+      <i class="wb-cover" style="left:0;right:${50 + left}%"></i><i class="wb-cover" style="left:${50 + right}%;right:0"></i><i class="wb-mid"></i></div>
     <div class="row xs" style="justify-content:space-between;margin-top:4px;flex-wrap:nowrap;gap:6px">
-      <span class="row" style="gap:5px;flex-wrap:nowrap;min-width:0">${dot("var(--acc2)")}<b>${pct(p)}</b><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nameA)}</span></span>
+      ${side(nameA, p, favA, false)}
       ${mid ? `<span class="mut" style="white-space:nowrap">${mid}</span>` : ""}
-      <span class="row" style="gap:5px;flex-wrap:nowrap;min-width:0;justify-content:flex-end"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nameB)}</span><b>${pct(1 - p)}</b>${dot("var(--warn)")}</span></div>`;
+      ${side(nameB, 1 - p, favB, true)}</div>`;
 }
 export const team = (t, sub = true) => t ? `<a class="tm" href="#team-${t.rosterId}">${av(t)}<span style="min-width:0"><b>${esc(t.name)}</b>${sub ? `<div class="xs mut">${esc(t.owner)}</div>` : ""}</span></a>` : "–";
 export const teamName = (t) => (t ? esc(t.name) : "–");

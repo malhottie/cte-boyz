@@ -92,3 +92,10 @@ details summary{cursor:pointer;color:var(--acc2);font-weight:600}
 .avw.crown::after{content:"👑";position:absolute;top:-12px;left:50%;transform:translateX(-50%) rotate(-10deg);font-size:16px;line-height:1;pointer-events:none}
 .avw.lg.crown::after{font-size:32px;top:-24px}
 .shame{display:inline-block;white-space:nowrap;background:var(--bad);color:#fff;font:800 20px var(--f-d);letter-spacing:1px;padding:3px 12px;border-radius:8px;transform:rotate(-3deg);box-shadow:0 2px 0 rgba(0,0,0,.35)}
+
+/* win-chance tug-of-war bar */
+.wbar{position:relative;height:14px;border-radius:9px;margin-top:8px;overflow:hidden;
+  background:linear-gradient(90deg,#f5c542 0%,#f2902c 25%,#e5484d 50%,#f2902c 75%,#f5c542 100%)}
+.wbar .wb-cover{position:absolute;top:0;bottom:0;background:var(--bg2)}
+.wbar .wb-mid{position:absolute;top:-2px;bottom:-2px;left:50%;width:2px;margin-left:-1px;background:var(--tx);opacity:.55}
+.wb-fav{color:#f5c542}
