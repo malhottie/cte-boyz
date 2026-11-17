@@ -43,7 +43,7 @@ function statLine(pid, season, week, proj = false) {
   if (P.p === "WR") { s.rec_tgt = g(7.5 * t); s.rec = Math.round(s.rec_tgt * (proj ? 0.65 : 0.45 + r() * 0.35)); s.rec_yd = Math.round(s.rec * (proj ? 12.5 : 8 + r() * 10)); s.rec_td = g(0.45 * t); s.off_snp = Math.round(Math.min(64, 55 * t)); s.rec_lng = proj ? 0 : Math.round(8 + r() * 50); }
   if (P.p === "TE") { s.rec_tgt = g(5.5 * t); s.rec = Math.round(s.rec_tgt * 0.7); s.rec_yd = Math.round(s.rec * (proj ? 10.5 : 7 + r() * 8)); s.rec_td = g(0.35 * t); s.off_snp = Math.round(Math.min(64, 50 * t)); }
   if (P.p === "K") { s.fga = g(2); s.fgm = Math.min(s.fga, g(1.7 * t)); s.xpm = g(2.4); }
-  if (P.p === "DEF") { s.sack = g(2.5 * t); s.int = g(0.8 * t); s.fum_rec = g(0.6); s.def_td = g(0.15 * t); s.ff = g(0.8);
+  if (P.p === "DEF") { const soft = 1.5 - TALENT[pid] * 0.5; s.fan_pts_allow_qb = 17 * soft; s.fan_pts_allow_rb = 24 * soft * (1 + (hash(pid) % 7 - 3) / 20); s.fan_pts_allow_wr = 33 * soft; s.fan_pts_allow_te = 11 * soft; s.sack = g(2.5 * t); s.int = g(0.8 * t); s.fum_rec = g(0.6); s.def_td = g(0.15 * t); s.ff = g(0.8);
     const pa = proj ? 21 : Math.max(0, Math.round(24 - 6 * t + norm(r) * 9)); s.pts_allow = pa;
     const k = pa === 0 ? "pts_allow_0" : pa < 7 ? "pts_allow_1_6" : pa < 14 ? "pts_allow_7_13" : pa < 21 ? "pts_allow_14_20" : pa < 28 ? "pts_allow_21_27" : pa < 35 ? "pts_allow_28_34" : "pts_allow_35p"; s[k] = 1; }
   let pts = 0; for (const [k, v] of Object.entries(SCORING)) if (s[k]) pts += s[k] * v;
@@ -193,6 +193,8 @@ export async function mockLocal(file) {
     }
     return out;
   }
+  if (file.includes("schedule")) { const weeks = {}; for (let w = 1; w <= 18; w++) { weeks[w] = {}; const tms = NFL.filter((t) => BYE[t] !== w); const off = w % 7 + 1;
+      const half = tms.length >> 1; for (let i = 0; i < half; i++) { const a = tms[i], b = tms[half + ((i + off) % half)]; weeks[w][a] = b; weeks[w][b] = a; } } return { season: CUR, weeks }; }
   if (file.includes("adp")) {
     const r = rng("adp"); const ranked = Object.keys(PLAYERS).filter((pid) => !["K", "DEF"].includes(PLAYERS[pid].p)).sort((a, b) => TALENT[b] - TALENT[a]).slice(0, 200);
     return { source: "demo", updated: new Date().toISOString(), season: CUR, players: Object.fromEntries(ranked.map((pid, i) => [pid, { avg: i + 1, sleeper: i % 9 === 8 ? undefined : Math.max(1, +(i + 1 + (r() - 0.5) * 8).toFixed(1)), espn: i + 2, cbs: i + 1, name: PLAYERS[pid].n }])) };

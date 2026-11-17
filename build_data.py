@@ -4,6 +4,7 @@ Nightly data refresh for the league site (run by .github/workflows/update-data.y
 Writes:
   data/players.json   slim Sleeper player DB (so browsers don't download Sleeper's 5 MB file)
   data/advanced.json  EPA/play, CPOE, aDOT, yards per team pass attempt (nflverse play-by-play)
+  data/schedule.json  NFL regular-season schedule: week -> team -> opponent (nflverse)
   data/ecr.json       FantasyPros rest-of-season expert consensus rankings
   data/adp.json       Sleeper ADP for the season (used for waiver-pickup keeper costs)
 
@@ -100,6 +101,22 @@ def build_advanced(season):
     write("advanced.json", {"season": season, "updated": now, "source": "nflverse play-by-play", "players": res})
 
 
+# ---------------------------------------------------------------- NFL schedule (for strength of schedule)
+def build_schedule(season):
+    import nflreadpy as nfl
+    import polars as pl
+    fix = {"LA": "LAR", "OAK": "LV", "SD": "LAC", "STL": "LAR", "WSH": "WAS"}
+    sc = nfl.load_schedules([season]).filter(pl.col("game_type") == "REG")
+    weeks = {}
+    for r in sc.select(["week", "home_team", "away_team"]).iter_rows(named=True):
+        h, a = fix.get(r["home_team"], r["home_team"]), fix.get(r["away_team"], r["away_team"])
+        w = weeks.setdefault(str(int(r["week"])), {})
+        w[h], w[a] = a, h
+    if len(weeks) < 17:
+        raise RuntimeError(f"schedule has only {len(weeks)} weeks")
+    write("schedule.json", {"season": season, "updated": now, "weeks": weeks})
+
+
 # ---------------------------------------------------------------- ECR (FantasyPros)
 def build_ecr():
     slug = {"ppr": "ppr-", "half": "half-point-ppr-", "std": ""}[SCORING]
@@ -177,7 +194,7 @@ if __name__ == "__main__":
     import traceback
     season, _ = season_now()
     status = {"updated": now}
-    for name, fn in [("players", build_players), ("advanced", lambda: build_advanced(season)), ("ecr", build_ecr), ("adp", lambda: build_adp(season))]:
+    for name, fn in [("players", build_players), ("advanced", lambda: build_advanced(season)), ("schedule", lambda: build_schedule(season)), ("ecr", build_ecr), ("adp", lambda: build_adp(season))]:
         try:
             fn()
             status[name] = "ok"

@@ -13,7 +13,21 @@ async function buildMetrics(m, onProgress) {
   const weeks = m.completedReg.length ? m.completedWeeks : [];
   let done = 0;
   const stats = await Promise.all(weeks.map((w) => loadStats(m.season, w).then((s) => { onProgress?.(++done, weeks.length); return s; })));
-  const [adv, ecr] = await Promise.all([local("data/advanced.json"), local("data/ecr.json")]);
+  const [adv, ecr, sched] = await Promise.all([local("data/advanced.json"), local("data/ecr.json"), local("data/schedule.json")]);
+  // ---- Strength of schedule: fantasy points each defense allows to each position, vs league average ----
+  const allow = {}; // team -> { QB: [pts per game...], ... }
+  stats.forEach((wk) => { for (const [id, s] of Object.entries(wk || {})) { if (s?.fan_pts_allow_qb == null && s?.fan_pts_allow_wr == null) continue;
+    const tm = id.replace(/^TEAM_/, ""); const a = (allow[tm] ||= { QB: [], RB: [], WR: [], TE: [] });
+    for (const pos of POS) { const v = s["fan_pts_allow_" + pos.toLowerCase()]; if (v != null) a[pos].push(v); } } });
+  const lgAllow = {}; for (const pos of POS) lgAllow[pos] = mean(Object.values(allow).flatMap((a) => a[pos]));
+  // ratio > 1 = soft matchup. Shrunk toward average for small samples, then damped (matchups are noisy).
+  const matchup = (def, pos) => { const g = allow[def]?.[pos]; if (!g?.length || !lgAllow[pos]) return 1;
+    const r = (g.length * (mean(g) / lgAllow[pos]) + 3) / (g.length + 3); return Math.max(0.8, Math.min(1.2, 1 + 0.6 * (r - 1))); };
+  const dow = new Date().getDay(); const from = (m.liveWeek || m.maxWeek + 1) + (m.liveWeek && (dow === 0 || dow === 1) ? 1 : 0);
+  const sosWeeks = []; for (let w = from; w <= 17; w++) if (sched?.weeks?.[w]) sosWeeks.push(w);
+  const sosFor = (tm, pos) => { if (!tm || !sosWeeks.length) return null; const opps = sosWeeks.map((w) => sched.weeks[w][tm] || null);
+    const rs = opps.filter(Boolean).map((o) => matchup(o, pos)); if (!rs.length) return null;
+    return { mult: mean(rs), games: rs.length, weeks: sosWeeks.length, opps: opps.map((o, i) => `W${sosWeeks[i]} ${o || "BYE"}`).join(", ") }; };
   let manual = {}; try { manual = JSON.parse(localStorage.getItem("trade:manual") || "{}"); } catch {}
   const fileManual = await local("data/manual_grades.json"); if (fileManual) manual = { ...fileManual, ...manual };
 
@@ -60,12 +74,15 @@ async function buildMetrics(m, onProgress) {
     const wsum = parts.reduce((s, [w]) => s + w, 0); x.proj = parts.reduce((s, [w, v]) => s + w * v, 0) / (wsum || 1);
     const eff = x.pos === "QB" ? [x.z_epa, x.z_cpoe, x.z_pff, mean([x.z_ypa, x.z_tdPct, x.z_intPct].filter((v) => v != null))] : [x.z_tpg, x.z_yprr ?? x.z_yptpa, x.z_epa, x.z_pff];
     const ev = eff.filter((v) => v != null && !isNaN(v)); x.effZ = ev.length ? Math.max(-2, Math.min(2, mean(ev))) : 0;
-    x.adj = x.proj * (1 + 0.05 * x.effZ);
+    x.adj0 = x.proj * (1 + 0.05 * x.effZ);
+    x.sos = sosFor(m.players[x.pid]?.t, x.pos); x.sosMult = x.sos?.mult ?? 1;
+    x.adj = x.adj0 * x.sosMult; // schedule-adjusted points per game
     const d = x.adj - (repl[x.pos] || 0); x.vor = d > 8 ? d : Math.log1p(Math.exp(0.6 * d)) / 0.6; // smooth floor: bench depth keeps a little value
+    if (x.sos) x.vor *= x.sos.games / x.sos.weeks; // a bye left on the schedule is a week of replacement-level production
   }
   const top = Math.max(...Object.values(P).map((x) => x.vor), 1);
   for (const x of Object.values(P)) { x.value = Math.round((100 * x.vor) / top * 10) / 10; x.posRank = pools[x.pos].indexOf(x) + 1; }
-  cacheMetrics = { P, repl, adv, ecr, hasManual: Object.keys(manual).length > 0 };
+  cacheMetrics = { P, repl, adv, ecr, hasManual: Object.keys(manual).length > 0, sosWeeks, hasAllow: Object.keys(allow).length > 0 };
   return cacheMetrics;
 }
 
@@ -80,7 +97,7 @@ function lineupValue(m, ids, P) {
 
 export async function render(root, m) {
   root.innerHTML = `<h1>Trade Analyzer</h1><div class="loading" id="ld">Loading weekly stats…</div>`;
-  const { P, repl, adv, ecr, hasManual } = await buildMetrics(m, (a, b) => { const el = document.getElementById("ld"); if (el) el.textContent = `Loading weekly stats… ${a}/${b}`; });
+  const { P, repl, adv, ecr, hasManual, sosWeeks, hasAllow } = await buildMetrics(m, (a, b) => { const el = document.getElementById("ld"); if (el) el.textContent = `Loading weekly stats… ${a}/${b}`; });
   const T = m.teamById; const ownerOf = {}; for (const t of m.teams) for (const p of t.roster.players || []) ownerOf[p] = t.rosterId;
   const st = { a: m.standings[0]?.rid, b: m.standings[1]?.rid, give: [], get: [] };
 
@@ -96,8 +113,9 @@ export async function render(root, m) {
   <div class="card"><details><summary>How values are calculated</summary><div class="sm" style="margin-top:8px;line-height:1.6">
     <b>1. Projected points per game</b> = 55% season PPG + 20% last-${CONFIG.TREND_GAMES}-game average (trend) + 25% expert-consensus-implied PPG (the PPG of the player at that ECR positional rank).<br>
     <b>2. Efficiency adjustment</b>: average z-score within position of targets/game, YPRR (or yards per team pass attempt if no YPRR loaded), EPA/play, PFF grade, and for QBs passing efficiency (Y/A, TD%, INT%) and CPOE. Clamped to ±2 SD and worth up to ±10%.<br>
-    <b>3. Value over replacement</b>: adjusted PPG minus the PPG of the first non-starter at that position (replacement: QB ${f1(repl.QB)}, RB ${f1(repl.RB)}, WR ${f1(repl.WR)}, TE ${f1(repl.TE)}), scaled so the league's most valuable player = 100.<br>
-    <b>4. Lineup impact</b>: each team's best possible starting lineup (by adjusted PPG) before and after the trade. Depth that won't start adds little.<br>
+    <b>3. Strength of schedule</b>: ${sosWeeks.length && hasAllow ? `for each remaining game (weeks ${sosWeeks[0]}–${sosWeeks.at(-1)}), the fantasy points that opponent's defense allows to the player's position, compared with the league average. Each matchup is pulled toward average for small samples, counted at 60% strength, and capped at ±20%; the average across remaining games multiplies the player's points per game. A bye still to come counts as a week at replacement level.` : `<b class="neg">not applied</b> (the NFL schedule or points-allowed data hasn't loaded).`}<br>
+    <b>4. Value over replacement</b>: adjusted PPG minus the PPG of the first non-starter at that position (replacement: QB ${f1(repl.QB)}, RB ${f1(repl.RB)}, WR ${f1(repl.WR)}, TE ${f1(repl.TE)}), scaled so the league's most valuable player = 100.<br>
+    <b>5. Lineup impact</b>: each team's best possible starting lineup (by adjusted PPG) before and after the trade. Depth that won't start adds little.<br>
     <span class="mut">Sources: weekly stats from Sleeper; EPA/CPOE/yards per team attempt from nflverse ${adv ? `(updated ${new Date(adv.updated).toLocaleDateString()})` : "<b class='neg'>(not loaded: run the data workflow)</b>"}; ECR from FantasyPros ${ecr ? `(${new Date(ecr.updated).toLocaleDateString()})` : "<b class='neg'>(not loaded)</b>"}. PFF grades and true YPRR are subscription-only; there's no free, consistent feed, so upload them below if you have them.</span></div></details>
     <details style="margin-top:8px"><summary>Upload PFF grades / YPRR (CSV)</summary><p class="sm mut">CSV with a header row containing <code>name</code> (or <code>sleeper_id</code>) plus <code>pff</code> and/or <code>yprr</code>. Saved in this browser. ${hasManual ? `<span class="pos">Manual grades loaded.</span>` : ""}</p><input type="file" id="csv" accept=".csv,text/csv"></details></div>
   <div class="card"><h3>Player values</h3><div class="tabs" id="pt">${POS.map((p, i) => `<button class="${i === 0 ? "on" : ""}" data-p="${p}">${p}</button>`).join("")}</div><div id="ptbl"></div></div>`;
@@ -152,6 +170,7 @@ export async function render(root, m) {
     { label: "Tgt/G", n: 1, f: (x) => (x.pos === "QB" ? "–" : f1(x.tpg)), s: (x) => x.tpg },
     { label: "Snap%", n: 1, f: (x) => pct(x.snapPct), s: (x) => x.snapPct },
     { label: "YPRR", n: 1, tip: "Uploaded YPRR; otherwise yards per team pass attempt (YPTPA) in grey", f: (x) => (x.yprr != null ? f2(x.yprr) : x.yptpa != null ? `<span class="mut">${f2(x.yptpa)}*</span>` : "–"), s: (x) => x.yprr ?? x.yptpa },
+    { label: "SOS", n: 1, tip: "Rest-of-season schedule vs average: + is easier (defenses that give up more fantasy points to this position)", f: (x) => (x.sos ? `<span class="${x.sosMult >= 1.005 ? "pos" : x.sosMult <= 0.995 ? "neg" : "mut"}" title="${esc(x.sos.opps)}">${sign((x.sosMult - 1) * 100, 0)}%</span>` : "–"), s: (x) => x.sosMult },
     { label: "EPA/play", n: 1, f: (x) => (x.epa == null ? "–" : f2(x.epa)), s: (x) => x.epa },
     { label: "Pass", tip: "QB: Y/A · TD% · INT% · CPOE", f: (x) => (x.pos === "QB" && x.pa ? `${f1(x.ypa)} Y/A · ${pct(x.tdPct, 1)} TD · ${pct(x.intPct, 1)} INT${x.cpoe != null ? ` · ${sign(x.cpoe)} CPOE` : ""}` : "–"), s: (x) => x.ypa },
     { label: "PFF", n: 1, f: (x) => (x.pff == null ? "–" : f1(x.pff)), s: (x) => x.pff },
