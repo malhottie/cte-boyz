@@ -67,8 +67,10 @@ export async function render(root, m, arg) {
   </div>
   <h2>Matchups</h2>
   <div class="grid g2">${margins.map((g) => matchupCard(m, g, ss, w)).join("")}</div>
+  <div id="wire"></div>
   ${await nextWeek(m)}`;
   startLive(root, m);
+  txFeed(m).then((h) => { const el = root.querySelector("#wire"); if (el) { el.innerHTML = h; wireFilters(el); } }).catch((e) => console.error(e));
   document.getElementById("wk").onchange = (e) => (location.hash = "home-" + e.target.value);
 }
 
@@ -105,6 +107,60 @@ function startLive(root, m) {
   draw(false);
   timer = setInterval(() => draw(true), 60000);
   addEventListener("hashchange", () => clearInterval(timer), { once: true });
+}
+
+// ---------- Transaction wire: trades (players, picks, FAAB) and FAAB spending ----------
+async function txFeed(m) {
+  const T = m.teamById; const budget = m.settings.waiver_budget ?? 100;
+  const last = Math.max(m.liveWeek || 0, m.maxWeek, 1);
+  const weeks = Array.from({ length: last }, (_, i) => i + 1);
+  const all = (await Promise.all(weeks.map((w) => get(`/league/${m.league.league_id}/transactions/${w}`).catch(() => [])))).flat()
+    .filter((t) => t.status === "complete" && (t.type === "trade" || (t.type === "waiver" && (t.settings?.waiver_bid ?? 0) >= 0)))
+    .sort((a, b) => (b.status_updated || b.created) - (a.status_updated || a.created));
+  if (!all.length) return "";
+  const when = (t) => { const d = new Date(t.status_updated || t.created); return `W${t.leg} · ${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`; };
+  const pl = (pid) => `<b>${esc(pName(m, pid))}</b> <span class="xs pos${pPos(m, pid)}">${pPos(m, pid)}</span>`;
+  const nm = (rid) => esc(T[rid]?.name || "?");
+  const tradeCard = (t) => {
+    const sides = t.roster_ids.map((rid) => {
+      const gets = [
+        ...Object.entries(t.adds || {}).filter(([, r]) => r === rid).map(([p]) => `<div>+ ${pl(p)}</div>`),
+        ...(t.draft_picks || []).filter((d) => d.owner_id === rid).map((d) => `<div>+ <b>${d.season} R${d.round}</b> pick${d.roster_id !== rid ? ` <span class="xs mut">(${esc(T[d.roster_id]?.owner || "?")}'s)</span>` : ""}</div>`),
+        ...(t.waiver_budget || []).filter((b) => b.receiver === rid).map((b) => `<div>+ <b class="gold">$${b.amount} FAAB</b></div>`),
+      ];
+      const drops = Object.entries(t.drops || {}).filter(([p, r]) => r === rid && !(t.adds || {})[p]).map(([p]) => `<div class="mut">− dropped ${pl(p)}</div>`);
+      return `<div style="flex:1;min-width:180px"><div style="margin-bottom:4px">${team(T[rid])}</div><div class="xs mut" style="letter-spacing:1px">RECEIVES</div><div class="sm">${gets.join("") || `<span class="mut">nothing</span>`}${drops.join("")}</div></div>`;
+    });
+    return `<div class="card wire-item" data-k="trade"><div class="row"><span class="pill g">⇄ Trade</span><span class="xs mut">${when(t)}</span></div><div class="row" style="align-items:flex-start;margin-top:10px;gap:18px">${sides.join(`<div class="mut" style="align-self:center;font-size:20px">⇄</div>`)}</div></div>`;
+  };
+  const waiverRow = (t) => {
+    const rid = t.roster_ids[0]; const bid = t.settings?.waiver_bid ?? 0; const pctB = budget ? bid / budget : 0;
+    const add = Object.entries(t.adds || {}).filter(([, r]) => r === rid).map(([p]) => pl(p)).join(", ");
+    const drop = Object.entries(t.drops || {}).filter(([, r]) => r === rid).map(([p]) => esc(pName(m, p))).join(", ");
+    const tag = pctB >= 0.3 ? `<span class="pill r">🔥 Splash</span>` : bid === 0 ? `<span class="pill">$0</span>` : "";
+    return `<div class="wire-item row sm" data-k="faab" style="padding:8px 0;border-bottom:1px solid var(--line);flex-wrap:nowrap;align-items:flex-start">
+      <span class="gold" style="font:700 22px var(--f-d);min-width:52px;text-align:right">$${bid}</span>
+      <span class="sp" style="min-width:0"><b>${nm(rid)}</b> claimed ${add}${drop ? ` <span class="mut">· dropped ${drop}</span>` : ""}<div class="xs mut">${when(t)}${budget ? ` · ${Math.round(pctB * 100)}% of budget` : ""}</div></span>${tag}</div>`;
+  };
+  const trades = all.filter((t) => t.type === "trade"), waivers = all.filter((t) => t.type === "waiver");
+  // FAAB leaderboard
+  const spent = m.teams.map((t) => ({ t, used: t.roster.settings?.waiver_budget_used || 0, n: waivers.filter((w) => w.roster_ids[0] === t.rosterId && (w.settings?.waiver_bid || 0) > 0).length }))
+    .sort((a, b) => b.used - a.used);
+  const maxU = Math.max(1, ...spent.map((x) => x.used));
+  const board = `<div class="card"><h3>FAAB spent</h3>${spent.map((x) => `<div class="row sm" style="padding:4px 0;flex-wrap:nowrap"><span style="width:150px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.t.name)}</span>
+      <div class="bar sp"><i style="width:${(x.used / maxU) * 100}%"></i></div><span style="width:110px;text-align:right" class="xs"><b class="gold">$${x.used}</b> <span class="mut">· $${budget - x.used} left</span></span></div>`).join("")}</div>`;
+  return `<div class="row" style="margin:18px 0 8px"><h1 class="sp" style="margin:0">Transaction Wire</h1>
+      <div class="tabs" id="wire-tabs" style="margin:0"><button class="on" data-f="all">All</button><button data-f="trade">Trades (${trades.length})</button><button data-f="faab">FAAB (${waivers.length})</button></div></div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));align-items:start">
+      <div id="wire-list">${trades.length ? trades.slice(0, 12).map(tradeCard).join("") : `<div class="card wire-item mut sm" data-k="trade">No trades yet this season.</div>`}
+        <div class="card wire-item" data-k="faab"><h3>Waiver claims</h3>${waivers.slice(0, 25).map(waiverRow).join("") || `<p class="mut sm">No waiver claims yet.</p>`}</div></div>
+      ${board}</div>`;
+}
+function wireFilters(el) {
+  el.querySelectorAll("#wire-tabs button").forEach((b) => (b.onclick = () => {
+    el.querySelectorAll("#wire-tabs button").forEach((x) => x.classList.toggle("on", x === b));
+    el.querySelectorAll("#wire-list .wire-item").forEach((it) => { if (it.parentElement.id === "wire-list") it.style.display = b.dataset.f === "all" || it.dataset.k === b.dataset.f ? "" : "none"; });
+  }));
 }
 
 // ---------- Next week: minimalist preview ----------

@@ -88,6 +88,13 @@ function season(yr) {
         settings: { waiver_bid: Math.floor(r() * 30) }, created: Date.UTC(yr, 8, 1 + wk * 7), leg: wk, creator: userId(ti) });
     }
   }
+  if (yr === CUR) { // a couple of demo trades: players + picks + FAAB
+    const swap = (wk, a, b, pa, pb, extra) => { const x = rost[a][pa], y = rost[b][pb]; rost[a][pa] = y; rost[b][pb] = x;
+      (tx[wk] ||= []).push({ transaction_id: "tr" + wk, type: "trade", status: "complete", roster_ids: [a + 1, b + 1], adds: { [y]: a + 1, [x]: b + 1 }, drops: { [x]: a + 1, [y]: b + 1 },
+        created: Date.UTC(yr, 8, 3 + wk * 7), status_updated: Date.UTC(yr, 8, 3 + wk * 7), leg: wk, settings: null, ...extra }); };
+    swap(4, 2, 4, 1, 3, { draft_picks: [{ season: "2027", round: 3, roster_id: 2, owner_id: 5, previous_owner_id: 2 }], waiver_budget: [] });
+    swap(9, 0, 6, 4, 2, { draft_picks: [{ season: "2027", round: 5, roster_id: 7, owner_id: 1, previous_owner_id: 7 }], waiver_budget: [{ sender: 1, receiver: 7, amount: 15 }] });
+  }
   // schedule (circle method)
   const sched = {};
   const ids = [...Array(12).keys()];
