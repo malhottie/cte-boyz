@@ -143,9 +143,21 @@ def build_adp():
     from lxml import html as LH
     slug = {"ppr": "ppr-overall", "half": "half-point-ppr-overall", "std": "overall"}[SCORING]
     url = f"https://www.fantasypros.com/nfl/adp/{slug}.php"
-    page = requests.get(url, headers=UA, timeout=60).text
+    resp = requests.get(url, headers=UA, timeout=60)
+    page = resp.text
     doc = LH.fromstring(page)
     fp2sl, name2sl = id_maps()
+    try:  # temporary diagnostics
+        i = page.find("<table")
+        j = page.find("player-name")
+        dbg = {"status": resp.status_code, "len": len(page), "title": doc.xpath("//title/text()"),
+               "tables": [[th.text_content().strip() for th in t.xpath(".//thead//th")] + [len(t.xpath(".//tbody/tr"))] for t in doc.xpath("//table")],
+               "vars": re.findall(r"var (\w+) = [\[{]", page)[:30], "maps": [len(fp2sl), len(name2sl)],
+               "table_snip": page[i:i + 1500] if i >= 0 else "", "player_snip": page[max(0, j - 1200):j + 1200] if j >= 0 else ""}
+        with open(os.path.join(OUT, "adp_debug.json"), "w") as f:
+            json.dump(dbg, f, indent=1)
+    except Exception as e:
+        print("debug failed", e)
     keymap = [("sleeper", "sleeper"), ("espn", "espn"), ("cbs", "cbs"), ("rts", "rtsports"), ("fantrax", "fantrax"),
               ("yahoo", "yahoo"), ("nfl", "nfl"), ("ffc", "ffc"), ("avg", "avg")]
     best = None
