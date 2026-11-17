@@ -183,12 +183,15 @@ def norm(s):
 
 
 if __name__ == "__main__":
+    import traceback
     season, _ = season_now()
-    ok = True
+    status = {"updated": now}
     for name, fn in [("players", build_players), ("advanced", lambda: build_advanced(season)), ("ecr", build_ecr), ("adp", build_adp)]:
         try:
             fn()
+            status[name] = "ok"
         except Exception as e:  # keep going; site handles missing files
-            ok = False
-            print(f"[{name}] FAILED: {e}", file=sys.stderr)
+            status[name] = "FAILED: " + "".join(traceback.format_exception_only(type(e), e)).strip()[:600]
+            print(f"[{name}] {status[name]}", file=sys.stderr)
+    write("build_status.json", status)
     sys.exit(0)
