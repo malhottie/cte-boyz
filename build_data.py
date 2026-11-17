@@ -149,7 +149,7 @@ def build_adp():
     k = page.find('"rows":[{"id"')
     if k < 0 or "avg" not in labels:
         raise RuntimeError("ADP data not found on FantasyPros page (layout changed?)")
-    rows, _ = json.JSONDecoder().raw_decode(page, k + len('"rows":'))
+    rows, end = json.JSONDecoder().raw_decode(page, k + len('"rows":'))
     names = {"espn": "espn", "sleeper": "sleeper", "cbs": "cbs", "rtsports": "rtsports", "fantrax": "fantrax",
              "yahoo": "yahoo", "nfl": "nfl", "avg": "avg", "realtime": "realtime"}
     keyof = {col: names.get(re.sub(r"[^a-z]", "", lab.lower())) for col, lab in labels.items()}
@@ -171,7 +171,9 @@ def build_adp():
     yr = re.search(r"<title>[^<]*?(20\d\d)", page)
     print(f"ADP: {len(rows)} rows, matched {len(out)}, unmatched {missed}; columns {labels}")
     if len(out) < 100:
-        raise RuntimeError(f"only {len(out)} ADP rows matched; not writing")
+        c0 = page.rfind('"columns"', 0, k)
+        ctx = page[max(0, c0 - 1500):c0 + 200]
+        raise RuntimeError(f"only {len(out)} of {len(rows)} ADP rows matched; occurrences={page.count(chr(34) + 'rows' + chr(34) + ':[')}; after={page[end:end + 500]}; tail={json.dumps(rows[-1])[:200]}; ctx={ctx}")
     write("adp.json", {"source": url, "updated": now, "season": int(yr.group(1)) if yr else None,
                        "platforms": [v for v in labels.values()], "players": out})
 
@@ -198,7 +200,7 @@ if __name__ == "__main__":
             fn()
             status[name] = "ok"
         except Exception as e:  # keep going; site handles missing files
-            status[name] = "FAILED: " + "".join(traceback.format_exception_only(type(e), e)).strip()[:600]
+            status[name] = "FAILED: " + "".join(traceback.format_exception_only(type(e), e)).strip()[:4000]
             print(f"[{name}] {status[name]}", file=sys.stderr)
     write("build_status.json", status)
     sys.exit(0)
