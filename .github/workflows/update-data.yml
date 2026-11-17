@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install nflreadpy polars requests lxml
+      - run: pip install nflreadpy polars requests
       - run: python build_data.py
         env:
           SCORING: ppr    # ppr | half | std — match your league for ECR

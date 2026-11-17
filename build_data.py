@@ -140,77 +140,40 @@ def id_maps():
 
 # ---------------------------------------------------------------- ADP (FantasyPros consensus + per-platform)
 def build_adp():
-    from lxml import html as LH
     slug = {"ppr": "ppr-overall", "half": "half-point-ppr-overall", "std": "overall"}[SCORING]
     url = f"https://www.fantasypros.com/nfl/adp/{slug}.php"
-    resp = requests.get(url, headers=UA, timeout=60)
-    page = resp.text
-    doc = LH.fromstring(page)
+    page = requests.get(url, headers=UA, timeout=60).text
     fp2sl, name2sl = id_maps()
-    try:  # temporary diagnostics
-        i = page.find("<table")
-        j = page.find("player-name")
-        dbg = {"status": resp.status_code, "len": len(page), "title": doc.xpath("//title/text()"),
-               "tables": [[th.text_content().strip() for th in t.xpath(".//thead//th")] + [len(t.xpath(".//tbody/tr"))] for t in doc.xpath("//table")],
-               "vars": re.findall(r"var (\w+) = [\[{]", page)[:30], "maps": [len(fp2sl), len(name2sl)],
-               "gibbs": [page[max(0, k.start() - 700):k.start() + 900] for k in list(re.finditer("Gibbs", page))[:3]], "n_gibbs": len(re.findall("Gibbs", page)),
-               "scripts": [(sc.get("src") or "", sc.get("type") or "", sc.get("id") or "", len(sc.text or "")) for sc in doc.xpath("//script")],
-               "apis": sorted(set(re.findall(r"https?://[a-z0-9.-]*fantasypros\.com/[A-Za-z0-9_/.?=&%-]*(?:api|adp)[A-Za-z0-9_/.?=&%-]*", page)))[:40],
-               "big_inline": [(sc.text or "")[:300] for sc in doc.xpath("//script") if len(sc.text or "") > 20000][:6]}
-        with open(os.path.join(OUT, "adp_debug.json"), "w") as f:
-            json.dump(dbg, f, indent=1)
-    except Exception as e:
-        print("debug failed", e)
-    keymap = [("sleeper", "sleeper"), ("espn", "espn"), ("cbs", "cbs"), ("rts", "rtsports"), ("fantrax", "fantrax"),
-              ("yahoo", "yahoo"), ("nfl", "nfl"), ("ffc", "ffc"), ("avg", "avg")]
-    best = None
-    for t in doc.xpath("//table"):
-        heads = [re.sub(r"[^a-z]", "", th.text_content().lower()) for th in t.xpath(".//thead//th")]
-        if "avg" in heads and len(t.xpath(".//tbody/tr")) > 50:
-            best = (t, heads)
-            break
-    if not best:
-        raise RuntimeError("ADP table not found; tables seen: " + str([[th.text_content().strip() for th in t.xpath('.//thead//th')] for t in doc.xpath('//table')][:5]))
-    t, heads = best
-    print("ADP columns:", heads)
+    # The table is embedded as JSON: "columns":[{"key":"src_79","label":"ESPN"},...],"rows":[{...},...]
+    labels = dict(re.findall(r'\{"key":"(src_\d+|avg|realtime)","label":"([^"]+)"', page))
+    k = page.find('"rows":[{"id"')
+    if k < 0 or "avg" not in labels:
+        raise RuntimeError("ADP data not found on FantasyPros page (layout changed?)")
+    rows, _ = json.JSONDecoder().raw_decode(page, k + len('"rows":'))
+    names = {"espn": "espn", "sleeper": "sleeper", "cbs": "cbs", "rtsports": "rtsports", "fantrax": "fantrax",
+             "yahoo": "yahoo", "nfl": "nfl", "avg": "avg", "realtime": "realtime"}
+    keyof = {col: names.get(re.sub(r"[^a-z]", "", lab.lower())) for col, lab in labels.items()}
     out, missed = {}, 0
-    for tr in t.xpath(".//tbody/tr"):
-        tds = tr.xpath("./td")
-        if len(tds) < len(heads):
-            continue
-        link = tr.xpath('.//a[contains(@class,"player-name")]') or tr.xpath('.//a[contains(@href,"/nfl/players/")]')
-        if not link:
-            continue
-        name = link[0].text_content().strip()
-        raw = LH.tostring(tr, encoding="unicode")
-        m = re.search(r"(?:fp-id-|mpb-player-|data-player-id=\"?|fp-player-id=\"?)(\d+)", raw)
-        row = {}
-        pos = ""
-        for h, td in zip(heads, tds):
-            txt = td.text_content().strip().replace(",", "")
-            if h.startswith("pos"):
-                pos = re.sub(r"\d+", "", txt).upper()
-                row["pos_rank"] = txt
-            for needle, key in keymap:
-                if h == needle or (needle != "nfl" and needle in h and h != "avg" and needle != "avg"):
-                    try:
-                        row[key] = float(txt)
-                    except ValueError:
-                        pass
-        if pos in ("DST", "D/ST"):
-            pos = "DEF"
-        sl = (fp2sl.get(m.group(1)) if m else None) or name2sl.get((norm(name), pos))
-        if not sl or "avg" not in row:
+    for r in rows:
+        pl = r.get("player") or {}
+        pos_rank = r.get("pos") or ""
+        pos = re.sub(r"\d+", "", pos_rank).upper()
+        pos = "DEF" if pos in ("DST", "D/ST") else pos
+        sl = fp2sl.get(str(pl.get("id") or r.get("id"))) or name2sl.get((norm(pl.get("name")), pos))
+        if not sl or not isinstance(r.get("avg"), (int, float)):
             missed += 1
             continue
-        row["name"] = name
+        row = {"name": pl.get("name"), "pos_rank": pos_rank}
+        for col, key in keyof.items():
+            if key and isinstance(r.get(col), (int, float)):
+                row[key] = r[col]
         out[sl] = row
-    title = doc.xpath("//title/text()")
-    yr = re.search(r"20\d\d", " ".join(title) + " " + " ".join(doc.xpath("//h1//text()")))
-    print(f"ADP: matched {len(out)} players, {missed} unmatched")
+    yr = re.search(r"<title>[^<]*?(20\d\d)", page)
+    print(f"ADP: {len(rows)} rows, matched {len(out)}, unmatched {missed}; columns {labels}")
     if len(out) < 100:
         raise RuntimeError(f"only {len(out)} ADP rows matched; not writing")
-    write("adp.json", {"source": url, "updated": now, "season": int(yr.group(0)) if yr else None, "players": out})
+    write("adp.json", {"source": url, "updated": now, "season": int(yr.group(1)) if yr else None,
+                       "platforms": [v for v in labels.values()], "players": out})
 
 
 def norm(s):
