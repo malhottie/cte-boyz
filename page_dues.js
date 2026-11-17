@@ -4,8 +4,9 @@ import { team, esc, table } from "./ui.js";
 
 export async function render(root, m) {
   const T = m.teamById; const buy = CONFIG.BUY_IN;
-  const due = (t) => CONFIG.DUES[t.username] || CONFIG.DUES[t.owner] || CONFIG.DUES[t.owner.toLowerCase()] || null;
-  const rows = m.teams.map((t) => { const d = due(t); const paid = d?.paid || 0; return { t, paid, owed: Math.max(0, buy - paid), d }; });
+  const due = (t) => CONFIG.DUES[t.username] || CONFIG.DUES[t.owner] || CONFIG.DUES[t.owner.toLowerCase()] || CONFIG.DUES["*"] || null;
+  const usd = (x) => "$" + (Math.abs(x - Math.round(x)) < 0.005 ? Math.round(x) : x.toFixed(2));
+  const rows = m.teams.map((t) => { const d = due(t); const paid = d?.paid || 0; return { t, paid, owed: Math.max(0, Math.round((buy - paid) * 100) / 100), d }; });
   const collected = rows.reduce((s, r) => s + r.paid, 0), pot = buy * m.teams.length;
   const payTotal = Object.values(CONFIG.PAYOUTS).reduce((a, b) => a + b, 0);
   const results = await Promise.all(CHALLENGES.map((c) => runChallenge(m, c)));
@@ -14,16 +15,16 @@ export async function render(root, m) {
 
   root.innerHTML = `<h1>Dues & Money</h1>
   <div class="grid g4" style="margin-bottom:14px">
-    <div class="stat"><div class="k">Collected</div><div class="v">$${collected}</div><div class="xs mut">of $${pot}</div></div>
+    <div class="stat"><div class="k">Collected</div><div class="v">${usd(collected)}</div><div class="xs mut">of ${usd(pot)}</div></div>
     <div class="stat"><div class="k">Paid up</div><div class="v">${rows.filter((r) => !r.owed).length}/${rows.length}</div></div>
     <div class="stat"><div class="k">Prize pool</div><div class="v">$${payTotal}</div><div class="xs mut">1st $${CONFIG.PAYOUTS[1]} · 2nd $${CONFIG.PAYOUTS[2]} · 3rd $${CONFIG.PAYOUTS[3]}</div></div>
     <div class="stat"><div class="k">Challenges</div><div class="v">${CONFIG.CHALLENGE_PAYOUT ? "$" + chTotal : "TBD"}</div><div class="xs mut">${CONFIG.CHALLENGE_PAYOUT ? `$${CONFIG.CHALLENGE_PAYOUT} × 17 weeks` : "awaiting league vote"}</div></div>
   </div>
-  ${payTotal + chTotal > pot ? `<div class="card" style="border-color:var(--warn)"><b class="gold">Heads up:</b> payouts ($${payTotal + chTotal}) exceed the pot ($${pot}). Weekly challenges need extra money or a payout change.</div>` : ""}
+  ${payTotal + chTotal > pot + 0.005 ? `<div class="card" style="border-color:var(--warn)"><b class="gold">Heads up:</b> payouts (${usd(payTotal + chTotal)}) exceed the pot (${usd(pot)}). Weekly challenges need extra money or a payout change.</div>` : ""}
   <div class="card">${table([
     { label: "Team", f: (r) => team(r.t), s: (r) => r.t.name },
-    { label: "Status", f: (r) => (r.owed ? `<span class="pill r">Owes $${r.owed}</span>` : `<span class="pill g">Paid ✓</span>`), s: (r) => -r.owed },
-    { label: "Paid", n: 1, f: (r) => `$${r.paid}`, s: (r) => r.paid },
+    { label: "Status", f: (r) => (r.owed ? `<span class="pill r">Owes ${usd(r.owed)}</span>` : `<span class="pill g">Paid ✓</span>`), s: (r) => -r.owed },
+    { label: "Paid", n: 1, f: (r) => usd(r.paid), s: (r) => r.paid },
     { label: "Date / method", f: (r) => esc([r.d?.date, r.d?.method].filter(Boolean).join(" · ") || "–"), s: false },
     { label: "Challenge $", n: 1, f: (r) => (chEarn[r.t.rosterId] ? `$${chEarn[r.t.rosterId].toFixed(2)}` : "–"), s: (r) => chEarn[r.t.rosterId] || 0 },
     { label: "Note", f: (r) => esc(r.d?.note || ""), s: false },

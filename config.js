@@ -16,13 +16,15 @@ export const CONFIG = {
   MOCK: false,
 
   // ---------------- Money ----------------
-  BUY_IN: 50,
+  BUY_IN: 64.17, // $50 base + $14.17 toward weekly challenges (17 x $10 / 12 teams)
   PAYOUTS: { 1: 400, 2: 150, 3: 50 },
-  CHALLENGE_PAYOUT: 0, // $ per weekly challenge win (set once the league votes)
+  CHALLENGE_PAYOUT: 10, // $ per weekly challenge win
 
   // Dues ledger. Key = Sleeper username (lowercase) OR display name.
   // paid: amount received so far. Anyone missing here shows as unpaid.
+  // The "*" entry applies to every owner who has no entry of their own.
   DUES: {
+    "*": { paid: 64.17, note: "" }, // everyone paid in full for 2026
     // "alexm": { paid: 50, date: "2026-08-20", method: "Venmo", note: "" },
   },
 
