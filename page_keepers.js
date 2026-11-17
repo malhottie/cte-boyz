@@ -25,7 +25,7 @@ export async function render(root, m) {
   // Consensus ADP (FantasyPros) with per-platform columns; the league rule keys off Sleeper's ADP
   const adpData = await local("data/adp.json"); const AP = adpData?.players || null; const nT = m.numTeams || 12;
   const pickOf = (pid) => (AP?.[pid] ? AP[pid].sleeper ?? AP[pid].avg : null);
-  const adpNote = (pid) => { const x = AP?.[pid]; if (!x) return ""; const src = x.sleeper != null ? `Sleeper ADP ${x.sleeper}` : `consensus ADP ${x.avg} (no Sleeper ADP)`;
+  const adpNote = (pid) => { const x = AP?.[pid]; if (!x) return ""; const src = x.sleeper != null ? `Sleeper ADP pick ${x.sleeper}` : `consensus ADP pick ${x.avg} (no Sleeper ADP)`;
     const others = [["consensus", x.sleeper != null ? x.avg : null], ["ESPN", x.espn], ["CBS", x.cbs], ["RTSports", x.rtsports], ["Fantrax", x.fantrax]].filter(([, v]) => v != null).map(([k, v]) => `${k} ${v}`).join(", ");
     return `${src}${others ? "; " + others : ""}`; };
 
@@ -68,7 +68,7 @@ export async function render(root, m) {
 
   root.innerHTML = `<h1>Keepers</h1>
   <div class="card sm"><b>Rules applied:</b> max 2 keepers (3 for the Consolation Bowl winner), never 2 at the same position · cost = 1 round earlier than last year's cost · kept at most 2 seasons · players drafted in rounds 1–2 can't be kept · waiver pickups cost 2× next season's Sleeper ADP · traded players carry their original draft value · season-ending-injury FA pickups use the 4th/7th/10th brackets. Your pick in the cost round is skipped at the draft.
-  <p class="note">${adpData ? `ADP: FantasyPros consensus of ESPN, CBS, RTSports, Fantrax and Sleeper${adpData.season ? ` (${adpData.season} drafts` : " ("}, updated ${new Date(adpData.updated).toLocaleDateString()}). Costs use the <b>Sleeper</b> column, as the rule says, and fall back to the consensus when Sleeper has no number. ADP pick ÷ ${nT} teams = round. The rule uses <i>next</i> season's ADP, so these waiver costs are a preview until ${m.season + 1} ADP exists; the nightly update switches over by itself.` : "ADP data hasn't loaded yet, so enter ADP rounds for waiver pickups below (or in config)."} Estimates only. Commissioners have the final say.</p></div>
+  <p class="note">${adpData ? `ADP comes straight from Sleeper (${adpData.season || ""} drafts, updated ${new Date(adpData.updated).toLocaleDateString()}), the source the rule names. ADP pick ÷ ${nT} teams = round, and the cost is capped at the last round. The rule uses <i>next</i> season's ADP, so these waiver costs are a preview until ${m.season + 1} ADP exists; the nightly update switches over by itself.` : "ADP data hasn't loaded yet, so enter ADP rounds for waiver pickups below (or in config)."} Estimates only. Commissioners have the final say.</p></div>
   <label class="sm"><input type="checkbox" id="cons"> Consolation Bowl winner gets a 3rd keeper:</label> <select id="consT"><option value="">–</option>${m.teams.map((t) => `<option value="${t.rosterId}">${esc(t.name)}</option>`).join("")}</select>
   <div class="grid g2" style="margin-top:12px">${data.map(({ t, rows }) => `<div class="card" data-rid="${t.rosterId}"><div class="row">${team(t)}<span class="sp"></span><span class="sm" id="sum-${t.rosterId}"></span></div>
     ${rows.map((r) => `<div class="plr"><input type="checkbox" data-k="${t.rosterId}" value="${r.pid}" ${r.ok === false ? "disabled" : ""} ${(sel[t.rosterId] || []).includes(r.pid) ? "checked" : ""}>
