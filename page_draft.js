@@ -137,7 +137,7 @@ export async function render(root, m) {
     c.getContext("2d").drawImage(img, (160 - img.width * k) / 2, (160 - img.height * k) / 2, img.width * k, img.height * k);
     try { localStorage.setItem("headshot:" + inp.dataset.o, c.toDataURL("image/jpeg", 0.85)); } catch {}
     imgs = await Promise.all(teams.map((t) => loadImg(headshotFor(t) || t.avatar)));
-    inp.closest(".row").querySelector(".av").outerHTML = av(teams.find((t) => t.ownerId === inp.dataset.o));
+    inp.closest(".row").querySelector(".avw").outerHTML = av(teams.find((t) => t.ownerId === inp.dataset.o));
   });
   addEventListener("hashchange", () => cancelAnimationFrame(raf), { once: true });
 }

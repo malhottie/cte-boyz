@@ -265,3 +265,13 @@ export function futurePicks(m, season = m.season + 1) {
   for (const k in own) own[k].sort((a, b) => a.round - b.round);
   return own;
 }
+
+// All-time standings by owner (regular season + playoffs tracked separately). Leader first.
+export async function allTimeStandings(m) {
+  const hist = await loadHistory(m); const games = await loadHistoryGames(m);
+  const at = {};
+  const add = (o, w, pf, pa, po) => { const r = (at[o] ||= { o, w: 0, l: 0, t: 0, pf: 0, pa: 0, pw: 0, pl: 0, g: 0 }); if (po) { w > 0 ? r.pw++ : w < 0 ? r.pl++ : 0; } else { w > 0 ? r.w++ : w < 0 ? r.l++ : r.t++; r.pf += pf; r.pa += pa; r.g++; } };
+  for (const g of games) { const d = Math.sign(g.pa - g.pb); add(g.oa, d, g.pa, g.pb, g.playoff); add(g.ob, -d, g.pb, g.pa, g.playoff); }
+  for (const s of hist) for (const k of ["champion", "runnerUp", "third"]) if (s[k] && at[s[k]]) at[s[k]][k] = (at[s[k]][k] || 0) + 1;
+  return Object.values(at).sort((a, b) => (b.champion || 0) - (a.champion || 0) || b.w / (b.g || 1) - a.w / (a.g || 1) || b.pf - a.pf);
+}

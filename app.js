@@ -1,6 +1,7 @@
-import { loadModel } from "./data.js";
+import { loadModel, allTimeStandings } from "./data.js";
 import { isMock } from "./api.js";
-import { esc } from "./ui.js";
+import { esc, setCrown } from "./ui.js";
+let crownP = null;
 
 const PAGES = {
   home: () => import("./page_home.js"), standings: () => import("./page_standings.js"),
@@ -28,6 +29,7 @@ async function route() {
     document.title = `${m.name} · League HQ`;
     const mod = await PAGES[key]();
     await mod.render(app, m, rest.join("-"));
+    crownP ??= allTimeStandings(m).then((rows) => setCrown(rows[0]?.o)).catch(() => {});
     window.scrollTo(0, 0);
   } catch (e) {
     console.error(e);

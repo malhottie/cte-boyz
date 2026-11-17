@@ -58,7 +58,7 @@ export async function render(root, m) {
     if (how === "drafted" && kept >= 2) return { ok: false, cost: null, how: "drafted", note: `Already kept ${kept} years (max 2)` };
     const next = thisYearCost - 1;
     if (how === "trade") return { ok: next >= 1, cost: Math.max(1, next), how: "traded for", note: pick.is_keeper ? `Was a keeper at R${thisYearCost}; previous owner's next cost, clock resets` : `Original draft position R${pick.round}` };
-    return { ok: next >= 1, cost: Math.max(1, next), how: "drafted", note: pick.is_keeper ? `Kept ${kept} yr${kept === 1 ? "" : "s"} (orig. R${orig}); final eligible year: ${kept === 1 ? "yes" : "no"}` : `Drafted R${pick.round}` };
+    return { ok: next >= 1, cost: Math.max(1, next), how: "drafted", note: pick.is_keeper ? `Kept ${kept} yr${kept === 1 ? "" : "s"} (orig. R${orig})${kept === 1 ? "; final eligible year" : ""}` : `Drafted R${pick.round}` };
   }
 
   const nextPicks = futurePicks(m, m.season + 1);

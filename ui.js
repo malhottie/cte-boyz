@@ -15,10 +15,27 @@ export function headshotFor(t) {
   let up = null; try { up = localStorage.getItem("headshot:" + t.ownerId); } catch {}
   return up || CONFIG.HEADSHOTS[t.username] || CONFIG.HEADSHOTS[t.owner] || null;
 }
+let crownOwner = null; const CROWN_KEY = "crown:" + CONFIG.LEAGUE_ID;
+try { if (!CONFIG.MOCK) crownOwner = localStorage.getItem(CROWN_KEY); } catch {}
+// The all-time standings leader wears a crown on every avatar
+export function setCrown(ownerId) {
+  crownOwner = ownerId || null; try { if (!CONFIG.MOCK && ownerId) localStorage.setItem(CROWN_KEY, ownerId); } catch {}
+  document.querySelectorAll(".avw").forEach((el) => el.classList.toggle("crown", !!ownerId && el.dataset.o === String(ownerId)));
+}
 export function av(t, cls = "") {
   const src = headshotFor(t) || t.avatar;
-  return src ? `<img class="av ${cls}" src="${esc(src)}" alt="" onerror="this.outerHTML='<span class=&quot;av ${cls}&quot;>${esc(initials(t.owner))}</span>'">`
+  const inner = src ? `<img class="av ${cls}" src="${esc(src)}" alt="" onerror="this.outerHTML='<span class=&quot;av ${cls}&quot;>${esc(initials(t.owner))}</span>'">`
     : `<span class="av ${cls}">${esc(initials(t.owner))}</span>`;
+  return `<i class="avw ${cls} ${crownOwner && String(t.ownerId) === String(crownOwner) ? "crown" : ""}" data-o="${esc(t.ownerId ?? "")}">${inner}</i>`;
+}
+// Win-chance bar with each side labelled and colour-keyed
+export function winBar(nameA, nameB, p, mid = "") {
+  const dot = (c) => `<i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};flex:none"></i>`;
+  return `<div class="meter" style="margin-top:8px;background:var(--warn)"><i style="left:0;width:${p * 100}%"></i></div>
+    <div class="row xs" style="justify-content:space-between;margin-top:4px;flex-wrap:nowrap;gap:6px">
+      <span class="row" style="gap:5px;flex-wrap:nowrap;min-width:0">${dot("var(--acc2)")}<b>${pct(p)}</b><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nameA)}</span></span>
+      ${mid ? `<span class="mut" style="white-space:nowrap">${mid}</span>` : ""}
+      <span class="row" style="gap:5px;flex-wrap:nowrap;min-width:0;justify-content:flex-end"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nameB)}</span><b>${pct(1 - p)}</b>${dot("var(--warn)")}</span></div>`;
 }
 export const team = (t, sub = true) => t ? `<a class="tm" href="#team-${t.rosterId}">${av(t)}<span style="min-width:0"><b>${esc(t.name)}</b>${sub ? `<div class="xs mut">${esc(t.owner)}</div>` : ""}</span></a>` : "–";
 export const teamName = (t) => (t ? esc(t.name) : "–");

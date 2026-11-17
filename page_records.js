@@ -1,5 +1,5 @@
 // Record Book: champions, all-time standings, head-to-head, single-game records.
-import { loadHistory, loadHistoryGames, mean } from "./data.js";
+import { allTimeStandings, loadHistory, loadHistoryGames, mean } from "./data.js";
 import { team, esc, f1, f2, pct, rec, table, heatColor } from "./ui.js";
 
 export async function render(root, m) {
@@ -9,12 +9,7 @@ export async function render(root, m) {
   const nameOf = (o) => { if (tByOwner[o]) return tByOwner[o]; for (const s of hist) { const u = s.users.find((x) => x.user_id === o); if (u) return { name: u.metadata?.team_name || u.display_name, owner: u.display_name, ownerId: o, rosterId: null, avatar: null, username: "" }; } return { name: "Unknown", owner: "?", ownerId: o }; };
   const tm = (o) => { const t = nameOf(o); return t.rosterId ? team(t) : `<b>${esc(t.owner)}</b>`; };
 
-  // All-time standings from game log (regular + playoffs separately)
-  const at = {};
-  const add = (o, w, pf, pa, po) => { const r = (at[o] ||= { o, w: 0, l: 0, t: 0, pf: 0, pa: 0, pw: 0, pl: 0, g: 0 }); if (po) { w > 0 ? r.pw++ : w < 0 ? r.pl++ : 0; } else { w > 0 ? r.w++ : w < 0 ? r.l++ : r.t++; r.pf += pf; r.pa += pa; r.g++; } };
-  for (const g of games) { const d = Math.sign(g.pa - g.pb); add(g.oa, d, g.pa, g.pb, g.playoff); add(g.ob, -d, g.pb, g.pa, g.playoff); }
-  for (const s of hist) for (const k of ["champion", "runnerUp", "third"]) if (s[k] && at[s[k]]) at[s[k]][k] = (at[s[k]][k] || 0) + 1;
-  const rows = Object.values(at).sort((a, b) => (b.champion || 0) - (a.champion || 0) || b.w / (b.g || 1) - a.w / (a.g || 1));
+  const rows = await allTimeStandings(m);
 
   // H2H matrix (owners in current league)
   const owners = m.standings.map((r) => m.teamById[r.rid].ownerId);
@@ -28,7 +23,7 @@ export async function render(root, m) {
   root.innerHTML = `<h1>Record Book</h1>
   <div class="card"><h3>🏆 Champions</h3>${table([{ label: "Season", k: "season" }, { label: "Champion", f: (s) => (s.champion ? tm(s.champion) : s.season === m.season && !m.finished ? `<span class="mut">TBD</span>` : "–") },
     { label: "Runner-up", f: (s) => (s.runnerUp ? tm(s.runnerUp) : "–") }, { label: "Third", f: (s) => (s.third ? tm(s.third) : "–") }], hist, { sortable: false })}</div>
-  <div class="card"><h3>All-time standings</h3>${table([{ label: "Owner", f: (r) => tm(r.o), s: (r) => nameOf(r.o).owner },
+  <div class="card"><h3>All-time standings</h3><p class="xs mut">👑 goes to the leader: most titles, then best regular-season win %.</p>${table([{ label: "Owner", f: (r) => tm(r.o), s: (r) => nameOf(r.o).owner },
     { label: "🏆", n: 1, f: (r) => r.champion || "", s: (r) => r.champion || 0 }, { label: "Reg. season", f: (r) => rec(r), s: (r) => r.w / (r.g || 1) }, { label: "Win %", n: 1, f: (r) => pct(r.w / (r.g || 1), 1), s: (r) => r.w / (r.g || 1) },
     { label: "Playoffs", f: (r) => `${r.pw}-${r.pl}`, s: (r) => r.pw }, { label: "PF/G", n: 1, f: (r) => f1(r.pf / (r.g || 1)), s: (r) => r.pf / (r.g || 1) }, { label: "Total PF", n: 1, f: (r) => f1(r.pf), s: (r) => r.pf }], rows)}</div>
   <div class="card"><h3>Head-to-head (all-time, incl. playoffs)</h3><p class="xs mut">Row owner's record vs column owner.</p><div class="tbl-wrap"><table class="heat"><thead><tr><th></th>${owners.map((o) => `<th>${esc(nameOf(o).owner)}</th>`).join("")}</tr></thead><tbody>

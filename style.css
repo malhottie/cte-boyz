@@ -87,3 +87,8 @@ details summary{cursor:pointer;color:var(--acc2);font-weight:600}
 .mrow .tm>span{min-width:0;overflow:hidden}
 .mrow .s{font:800 24px var(--f-d);font-variant-numeric:tabular-nums;min-width:64px;text-align:right}
 .mrow .s.w{color:var(--acc)}
+
+.avw{position:relative;display:inline-flex;flex:none;font-style:normal}
+.avw.crown::after{content:"👑";position:absolute;top:-12px;left:50%;transform:translateX(-50%) rotate(-10deg);font-size:16px;line-height:1;pointer-events:none}
+.avw.lg.crown::after{font-size:32px;top:-24px}
+.shame{display:inline-block;white-space:nowrap;background:var(--bad);color:#fff;font:800 20px var(--f-d);letter-spacing:1px;padding:3px 12px;border-radius:8px;transform:rotate(-3deg);box-shadow:0 2px 0 rgba(0,0,0,.35)}

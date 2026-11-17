@@ -118,7 +118,7 @@ export async function render(root, m) {
     <b>5. Lineup impact</b>: each team's best possible starting lineup (by adjusted PPG) before and after the trade. Depth that won't start adds little.<br>
     <span class="mut">Sources: weekly stats from Sleeper; EPA/CPOE/yards per team attempt from nflverse ${adv ? `(updated ${new Date(adv.updated).toLocaleDateString()})` : "<b class='neg'>(not loaded: run the data workflow)</b>"}; ECR from FantasyPros ${ecr ? `(${new Date(ecr.updated).toLocaleDateString()})` : "<b class='neg'>(not loaded)</b>"}. PFF grades and true YPRR are subscription-only; there's no free, consistent feed, so upload them below if you have them.</span></div></details>
     <details style="margin-top:8px"><summary>Upload PFF grades / YPRR (CSV)</summary><p class="sm mut">CSV with a header row containing <code>name</code> (or <code>sleeper_id</code>) plus <code>pff</code> and/or <code>yprr</code>. Saved in this browser. ${hasManual ? `<span class="pos">Manual grades loaded.</span>` : ""}</p><input type="file" id="csv" accept=".csv,text/csv"></details></div>
-  <div class="card"><h3>Player values</h3><div class="tabs" id="pt">${POS.map((p, i) => `<button class="${i === 0 ? "on" : ""}" data-p="${p}">${p}</button>`).join("")}</div><div id="ptbl"></div></div>`;
+  <div class="card"><h3>Player values</h3><div class="tabs" id="pt">${POS.map((p, i) => `<button class="${i === 0 ? "on" : ""}" data-p="${p}">${p}</button>`).join("")}</div><div class="row" id="pf" style="margin-bottom:10px"></div><div id="ptbl"></div></div>`;
 
   const ta = root.querySelector("#ta"), tb = root.querySelector("#tb");
   ta.value = st.a; tb.value = st.b;
@@ -158,9 +158,20 @@ export async function render(root, m) {
   }
   ta.onchange = () => { st.a = +ta.value; st.give = []; draw(); }; tb.onchange = () => { st.b = +tb.value; st.get = []; draw(); };
   draw();
-  const posTable = (pos) => { root.querySelector("#ptbl").innerHTML = table(cols(m, true), Object.values(P).filter((x) => x.pos === pos && x.gp >= 1).sort((a, b) => b.value - a.value).slice(0, 60)); };
-  root.querySelectorAll("#pt button").forEach((b) => (b.onclick = () => { root.querySelectorAll("#pt button").forEach((x) => x.classList.toggle("on", x === b)); posTable(b.dataset.p); }));
-  posTable("QB");
+  const SORTS = { value: ["Value", (x) => x.value], ppg: ["PPG", (x) => x.ppg], last: [`Last ${CONFIG.TREND_GAMES} avg`, (x) => x.last], trend: ["Trend (hottest)", (x) => x.trend],
+    tpg: ["Targets/G", (x) => x.tpg], epa: ["EPA/play", (x) => x.epa], sos: ["Easiest schedule", (x) => x.sosMult], ecr: ["Expert rank", (x) => -(x.ecr ?? 9999)] };
+  const pv = { pos: "QB", own: "all", sort: "value" };
+  root.querySelector("#pf").innerHTML = `<label class="sm">Show <select id="pown"><option value="all">All players</option><option value="fa">Free agents</option><option value="owned">Owned</option>${m.teams.map((t) => `<option value="${t.rosterId}">${esc(t.name)}</option>`).join("")}</select></label>
+    <label class="sm">Sort by <select id="psort">${Object.entries(SORTS).map(([k, [l]]) => `<option value="${k}">${l}</option>`).join("")}</select></label><span class="xs mut" id="pcount"></span>`;
+  const posTable = () => { const f = SORTS[pv.sort][1];
+    const list = Object.values(P).filter((x) => x.pos === pv.pos && x.gp >= 1 && (pv.own === "all" || (pv.own === "fa" ? !ownerOf[x.pid] : pv.own === "owned" ? !!ownerOf[x.pid] : ownerOf[x.pid] === +pv.own)))
+      .sort((a, b) => (f(b) ?? -1e9) - (f(a) ?? -1e9) || b.value - a.value);
+    root.querySelector("#pcount").textContent = `${Math.min(60, list.length)} of ${list.length} shown`;
+    root.querySelector("#ptbl").innerHTML = table(cols(m, true), list.slice(0, 60)); };
+  root.querySelectorAll("#pt button").forEach((b) => (b.onclick = () => { root.querySelectorAll("#pt button").forEach((x) => x.classList.toggle("on", x === b)); pv.pos = b.dataset.p; posTable(); }));
+  root.querySelector("#pown").onchange = (e) => { pv.own = e.target.value; posTable(); };
+  root.querySelector("#psort").onchange = (e) => { pv.sort = e.target.value; posTable(); };
+  posTable();
   function cols(m, withOwner) { return [
     { label: "Player", f: (x) => player(m, x.pid), s: (x) => pName(m, x.pid) },
     ...(withOwner ? [{ label: "Owner", f: (x) => (ownerOf[x.pid] ? esc(T[ownerOf[x.pid]].owner) : `<span class="mut">FA</span>`), s: (x) => (ownerOf[x.pid] ? T[ownerOf[x.pid]].owner : "zz") }] : []),
