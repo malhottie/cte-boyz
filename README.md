@@ -6,7 +6,7 @@ Hosting is free on GitHub Pages, and a nightly GitHub Action refreshes the advan
 ## Setup (about 10 minutes)
 
 1. **Create a GitHub repo** (e.g. `league-hq`) and upload everything in this folder, including the hidden `.github` folder.
-2. **Add your league ID**: open `js/config.js` and replace `PASTE_YOUR_LEAGUE_ID_HERE`.
+2. **Add your league ID**: open `config.js` and replace `PASTE_YOUR_LEAGUE_ID_HERE`.
    To find it, open your league at sleeper.com; the long number in the URL is the ID.
    Until you do this, the site runs in **demo mode** with fake data.
 3. **Turn on Pages**: in the repo go to Settings → Pages → "Deploy from a branch" → `main` / `(root)`. Your site will be at `https://<you>.github.io/league-hq/`.
@@ -16,7 +16,7 @@ Hosting is free on GitHub Pages, and a nightly GitHub Action refreshes the advan
 
 Running it locally: `python3 -m http.server` in this folder, then open http://localhost:8000. Opening `index.html` directly from disk won't work, because browsers block JS modules from `file://`.
 
-## Commissioner upkeep (all in `js/config.js`)
+## Commissioner upkeep (all in `config.js`)
 
 | What | Where |
 |---|---|

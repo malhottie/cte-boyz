@@ -11,7 +11,7 @@ Each part fails independently; the site falls back gracefully when a file is mis
 import json, os, re, sys, datetime as dt
 import requests
 
-OUT = os.path.join(os.path.dirname(__file__), "..", "data")
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 os.makedirs(OUT, exist_ok=True)
 UA = {"User-Agent": "Mozilla/5.0 (league-site data bot)"}
 SCORING = os.environ.get("SCORING", "half")  # ppr | half | std

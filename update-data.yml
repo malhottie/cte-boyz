@@ -1,0 +1,29 @@
+name: Update data
+
+on:
+  schedule:
+    - cron: "17 11 * * *"   # daily ~5am Mountain
+    - cron: "17 9 * * 2"    # Tuesday early morning, after Monday Night Football
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install nflreadpy polars requests
+      - run: python build_data.py
+        env:
+          SCORING: ppr    # ppr | half | std — match your league for ECR
+      - name: Commit changes
+        run: |
+          git config user.name "league-data-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/
+          git diff --cached --quiet || git commit -m "Refresh player data" && git push

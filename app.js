@@ -3,12 +3,12 @@ import { isMock } from "./api.js";
 import { esc } from "./ui.js";
 
 const PAGES = {
-  home: () => import("./pages/home.js"), standings: () => import("./pages/standings.js"),
-  teams: () => import("./pages/teams.js"), team: () => import("./pages/team.js"),
-  chances: () => import("./pages/chances.js"), challenges: () => import("./pages/challenges.js"),
-  trade: () => import("./pages/trade.js"), keepers: () => import("./pages/keepers.js"),
-  records: () => import("./pages/records.js"), dues: () => import("./pages/dues.js"),
-  draft: () => import("./pages/draft.js"), rules: () => import("./pages/rules.js"),
+  home: () => import("./page_home.js"), standings: () => import("./page_standings.js"),
+  teams: () => import("./page_teams.js"), team: () => import("./page_team.js"),
+  chances: () => import("./page_chances.js"), challenges: () => import("./page_challenges.js"),
+  trade: () => import("./page_trade.js"), keepers: () => import("./page_keepers.js"),
+  records: () => import("./page_records.js"), dues: () => import("./page_dues.js"),
+  draft: () => import("./page_draft.js"), rules: () => import("./page_rules.js"),
 };
 
 const app = document.getElementById("app");
