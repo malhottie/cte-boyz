@@ -5,7 +5,7 @@ Writes:
   data/players.json   slim Sleeper player DB (so browsers don't download Sleeper's 5 MB file)
   data/advanced.json  EPA/play, CPOE, aDOT, yards per team pass attempt (nflverse play-by-play)
   data/ecr.json       FantasyPros rest-of-season expert consensus rankings
-  data/adp.json       FantasyPros consensus ADP with per-platform columns (ESPN, Sleeper, CBS, RTSports, Fantrax)
+  data/adp.json       Sleeper ADP for the season (used for waiver-pickup keeper costs)
 
 Each part fails independently; the site falls back gracefully when a file is missing.
 """
@@ -139,43 +139,25 @@ def id_maps():
 
 
 # ---------------------------------------------------------------- ADP (FantasyPros consensus + per-platform)
-def build_adp():
-    slug = {"ppr": "ppr-overall", "half": "half-point-ppr-overall", "std": "overall"}[SCORING]
-    url = f"https://www.fantasypros.com/nfl/adp/{slug}.php"
-    page = requests.get(url, headers=UA, timeout=60).text
-    fp2sl, name2sl = id_maps()
-    # The table is embedded as JSON: "columns":[{"key":"src_79","label":"ESPN"},...],"rows":[{...},...]
-    labels = dict(re.findall(r'\{"key":"(src_\d+|avg|realtime)","label":"([^"]+)"', page))
-    k = page.find('"rows":[{"id"')
-    if k < 0 or "avg" not in labels:
-        raise RuntimeError("ADP data not found on FantasyPros page (layout changed?)")
-    rows, end = json.JSONDecoder().raw_decode(page, k + len('"rows":'))
-    names = {"espn": "espn", "sleeper": "sleeper", "cbs": "cbs", "rtsports": "rtsports", "fantrax": "fantrax",
-             "yahoo": "yahoo", "nfl": "nfl", "avg": "avg", "realtime": "realtime"}
-    keyof = {col: names.get(re.sub(r"[^a-z]", "", lab.lower())) for col, lab in labels.items()}
-    out, missed = {}, 0
-    for r in rows:
-        pl = r.get("player") or {}
-        pos_rank = r.get("pos") or ""
-        pos = re.sub(r"\d+", "", pos_rank).upper()
-        pos = "DEF" if pos in ("DST", "D/ST") else pos
-        sl = fp2sl.get(str(pl.get("id") or r.get("id"))) or name2sl.get((norm(pl.get("name")), pos))
-        if not sl or num(r.get("avg")) is None:
-            missed += 1
-            continue
-        row = {"name": pl.get("name"), "pos_rank": pos_rank}
-        for col, key in keyof.items():
-            if key and num(r.get(col)) is not None:
-                row[key] = num(r[col])
-        out[sl] = row
-    yr = re.search(r"<title>[^<]*?(20\d\d)", page)
-    print(f"ADP: {len(rows)} rows, matched {len(out)}, unmatched {missed}; columns {labels}")
+def build_adp(season):
+    """Sleeper's own ADP (the league's keeper rule is written against Sleeper ADP).
+    FantasyPros' cross-platform consensus table only exposes its first 5 rows without an account, so it can't be used."""
+    key = {"ppr": "adp_ppr", "half": "adp_half_ppr", "std": "adp_std"}[SCORING]
+    url = (f"https://api.sleeper.com/projections/nfl/{season}?season_type=regular"
+           "&position[]=QB&position[]=RB&position[]=WR&position[]=TE&position[]=K&position[]=DEF&order_by=" + key)
+    data = requests.get(url, headers=UA, timeout=60).json()
+    out, keys = {}, set()
+    for r in data:
+        st = r.get("stats") or {}
+        keys.update(k for k in st if k.startswith("adp"))
+        v = num(st.get(key))
+        if v is not None and 0 < v < 900:
+            pl = r.get("player") or {}
+            out[str(r.get("player_id"))] = {"sleeper": v, "name": f"{pl.get('first_name', '')} {pl.get('last_name', '')}".strip()}
+    print(f"ADP: {len(data)} rows, {len(out)} with {key}; adp keys: {sorted(keys)}")
     if len(out) < 100:
-        c0 = page.rfind('"columns"', 0, k)
-        ctx = page[max(0, c0 - 1500):c0 + 200]
-        raise RuntimeError(f"only {len(out)} of {len(rows)} ADP rows matched; occurrences={page.count(chr(34) + 'rows' + chr(34) + ':[')}; after={page[end:end + 500]}; tail={json.dumps(rows[-1])[:200]}; ctx={ctx}")
-    write("adp.json", {"source": url, "updated": now, "season": int(yr.group(1)) if yr else None,
-                       "platforms": [v for v in labels.values()], "players": out})
+        raise RuntimeError(f"only {len(out)} of {len(data)} rows had {key}; adp keys seen: {sorted(keys)}")
+    write("adp.json", {"source": "Sleeper", "field": key, "updated": now, "season": season, "platforms": ["Sleeper"], "players": out})
 
 
 def num(v):
@@ -195,7 +177,7 @@ if __name__ == "__main__":
     import traceback
     season, _ = season_now()
     status = {"updated": now}
-    for name, fn in [("players", build_players), ("advanced", lambda: build_advanced(season)), ("ecr", build_ecr), ("adp", build_adp)]:
+    for name, fn in [("players", build_players), ("advanced", lambda: build_advanced(season)), ("ecr", build_ecr), ("adp", lambda: build_adp(season))]:
         try:
             fn()
             status[name] = "ok"
