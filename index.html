@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>League HQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script src="js/vendor/chart.umd.js"></script>
+</head>
+<body>
+<header class="top">
+  <a href="#home" class="brand"><span class="ball">🏈</span><span id="league-name">League HQ</span></a>
+  <button class="menu-btn" id="menu-btn" aria-label="Menu">☰</button>
+  <nav id="nav">
+    <a href="#home">Recap</a>
+    <a href="#standings">Standings</a>
+    <a href="#teams">Teams</a>
+    <a href="#chances">What are the chances?</a>
+    <a href="#challenges">Challenges</a>
+    <a href="#trade">Trade Analyzer</a>
+    <a href="#keepers">Keepers</a>
+    <a href="#records">Record Book</a>
+    <a href="#dues">Dues & $</a>
+    <a href="#draft">Draft Day</a>
+    <a href="#rules">Rules</a>
+  </nav>
+</header>
+<div id="demo-banner" class="demo-banner" hidden>Demo mode: fake data. Add your Sleeper league ID in <code>js/config.js</code>.</div>
+<main id="app"><div class="loading">Loading league…</div></main>
+<footer class="foot">Data from the Sleeper API · advanced stats from nflverse · ECR from FantasyPros</footer>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
