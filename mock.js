@@ -108,7 +108,7 @@ function season(yr) {
     return st;
   };
   const entry = (ti, w, mid, scored) => {
-    const starters = lineup(ti, w); const pp = {}; for (const p of rost[ti]) pp[p] = scored ? fpts(p, yr, w) : 0;
+    const starters = lineup(ti, w); const pp = {}; const lv = yr === CUR && w === CUR_WEEK; for (const p of rost[ti]) pp[p] = scored ? fpts(p, yr, w) : lv ? Math.round(fpts(p, yr, w) * (1 - liveFrac(PLAYERS[p].t)) * 100) / 100 : 0;
     const sp = starters.map((p) => (p === "0" ? 0 : pp[p]));
     return { roster_id: ti + 1, matchup_id: mid, starters, starters_points: sp, players: [...rost[ti]], players_points: pp, points: Math.round(sp.reduce((a, b) => a + b, 0) * 100) / 100, custom_points: null };
   };
@@ -158,7 +158,7 @@ export async function mockGet(path) {
   const p = path.split("/").filter(Boolean);
   if (path === "/state/nfl") return { season: String(CUR), week: CUR_WEEK, display_week: CUR_WEEK, leg: CUR_WEEK, season_type: "regular", previous_season: String(CUR - 1) };
   if (p[0] === "league") {
-    const yr = +p[1].replace("MOCK", "") || CUR; const S = season(yr);
+    const yr = p[1].startsWith("MOCK") ? +p[1].replace("MOCK", "") : CUR; const S = season(yr);
     if (p.length === 2) return LEAGUE(yr);
     switch (p[2]) {
       case "users": return OWNERS.map(([n, team], i) => ({ user_id: userId(i), display_name: n, username: n.toLowerCase(), avatar: null, metadata: { team_name: team }, is_owner: i < 2 }));
@@ -193,6 +193,10 @@ export async function mockLocal(file) {
     }
     return out;
   }
+  if (file.includes("adp")) {
+    const r = rng("adp"); const ranked = Object.keys(PLAYERS).filter((pid) => !["K", "DEF"].includes(PLAYERS[pid].p)).sort((a, b) => TALENT[b] - TALENT[a]).slice(0, 200);
+    return { source: "demo", updated: new Date().toISOString(), season: CUR, players: Object.fromEntries(ranked.map((pid, i) => [pid, { avg: i + 1, sleeper: i % 9 === 8 ? undefined : Math.max(1, +(i + 1 + (r() - 0.5) * 8).toFixed(1)), espn: i + 2, cbs: i + 1, name: PLAYERS[pid].n }])) };
+  }
   if (file.includes("ecr")) {
     const ranked = Object.keys(PLAYERS).filter((pid) => !["K", "DEF"].includes(PLAYERS[pid].p))
       .sort((a, b) => TALENT[b] * { QB: 0.8, RB: 1.15, WR: 1.1, TE: 0.75 }[PLAYERS[b].p] - TALENT[a] * { QB: 0.8, RB: 1.15, WR: 1.1, TE: 0.75 }[PLAYERS[a].p]);
@@ -200,3 +204,7 @@ export async function mockLocal(file) {
   }
   return null;
 }
+
+// Demo live week: a third of NFL teams are final, a third mid-game, a third yet to play.
+function liveFrac(tm) { const i = NFL.indexOf(tm) % 3; return i === 0 ? 0 : i === 1 ? 0.45 : 1; }
+export function mockLive() { const out = {}; NFL.forEach((tm) => { const f = liveFrac(tm); out[tm] = BYE[tm] === CUR_WEEK ? { state: "bye", frac: 0 } : { state: f === 0 ? "post" : f === 1 ? "pre" : "in", frac: f, detail: "" }; }); return out; }

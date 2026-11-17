@@ -47,13 +47,13 @@ export function projectedTeamPoints(m, week, proj, fp) {
 // Standard bracket order for 8/16 slots; seeds above the field are byes
 const ORDER = { 2: [1, 2], 4: [1, 4, 2, 3], 8: [1, 8, 4, 5, 2, 7, 3, 6], 16: [1, 16, 8, 9, 4, 13, 5, 12, 2, 15, 7, 10, 3, 14, 6, 11] };
 
-export function simulate(m, { models, bracket = [], runs = CONFIG.SIMULATIONS } = {}) {
+export function simulate(m, { models, bracket = [], runs = CONFIG.SIMULATIONS, live = null } = {}) {
   const rids = m.teams.map((t) => t.rosterId);
   const base = Object.fromEntries(m.standings.map((r) => [r.rid, r]));
   const remaining = m.games.filter((g) => g.week < m.playoffStart && !m.completedWeeks.includes(g.week));
   const nP = m.playoffTeams; const size = 2 ** Math.ceil(Math.log2(nP)); const byes = size - nP;
   const tally = Object.fromEntries(rids.map((r) => [r, { playoffs: 0, bye: 0, final: 0, champ: 0, last: 0, wins: 0, seeds: Array(nP + 1).fill(0), pfSpot: 0 }]));
-  const draw = (rid, week) => { const M = models[rid]; const mu = week === m.liveWeek && M.weekMu ? M.weekMu : M.mu; return mu + randn() * M.sd; };
+  const draw = (rid, week) => { if (live && week === m.liveWeek && live[rid]) return live[rid].expected + randn() * live[rid].sd; const M = models[rid]; const mu = week === m.liveWeek && M.weekMu ? M.weekMu : M.mu; return mu + randn() * M.sd; };
   const regDone = remaining.length === 0;
 
   for (let k = 0; k < runs; k++) {

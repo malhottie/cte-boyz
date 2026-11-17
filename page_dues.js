@@ -13,7 +13,7 @@ export async function render(root, m) {
   const chEarn = {}; results.forEach((r) => r.status === "final" && r.winners.forEach((rid) => (chEarn[rid] = (chEarn[rid] || 0) + CONFIG.CHALLENGE_PAYOUT / r.winners.length)));
   const chTotal = 17 * CONFIG.CHALLENGE_PAYOUT;
 
-  root.innerHTML = `<h1>Dues & Money</h1>
+  root.innerHTML = `<h1>Dues</h1>
   <div class="grid g4" style="margin-bottom:14px">
     <div class="stat"><div class="k">Collected</div><div class="v">${usd(collected)}</div><div class="xs mut">of ${usd(pot)}</div></div>
     <div class="stat"><div class="k">Paid up</div><div class="v">${rows.filter((r) => !r.owed).length}/${rows.length}</div></div>

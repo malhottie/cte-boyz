@@ -1,7 +1,8 @@
 import { seedPlayoffs, median, mean, sd, opponentOf, teamEntry } from "./data.js";
 import { team, table, f1, f2, sign, pct, rec, heatColor, esc, chart } from "./ui.js";
 
-export async function render(root, m, tab = "table") {
+export async function render(root, m, tab) {
+  tab = tab || "table";
   const T = m.teamById; const S = m.standings;
   const seeds = seedPlayoffs(S, m.playoffTeams); const seedOf = (rid) => seeds.findIndex((r) => r.rid === rid) + 1;
   const tabs = [["table", "Standings"], ["median", "vs Median"], ["swap", "Schedule Swap"], ["power", "Power Rankings"], ["weekly", "Weekly Scores"]];

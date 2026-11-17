@@ -12,6 +12,6 @@ export async function render(root, m) {
     return p.split("\n").map((r) => `<p>${esc(r)}</p>`).join("");
   }).join("");
   root.innerHTML = `<h1>Rules</h1>
-  <div class="card"><h2>Weekly challenges</h2>${CHALLENGES.map((c) => `<div class="row sm" style="padding:4px 0;flex-wrap:nowrap"><span class="pill" style="width:48px;text-align:center">W${c.week}</span><span><b>${esc(c.name)}</b> <span class="mut">${esc(c.desc)}</span></span></div>`).join("")}</div>
-  <div class="card"><h2>Constitution</h2><div class="sm" style="line-height:1.6">${html}</div></div>`;
+  <div class="card"><h2>Constitution</h2><div class="sm" style="line-height:1.6">${html}</div></div>
+  <div class="card"><h2>Weekly challenges</h2>${CHALLENGES.map((c) => `<div class="row sm" style="padding:4px 0;flex-wrap:nowrap"><span class="pill" style="width:48px;text-align:center">W${c.week}</span><span><b>${esc(c.name)}</b> <span class="mut">${esc(c.desc)}</span></span></div>`).join("")}</div>`;
 }

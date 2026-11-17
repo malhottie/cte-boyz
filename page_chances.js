@@ -1,4 +1,5 @@
 import { teamModels, simulate, winProb, projectedTeamPoints } from "./sim.js";
+import { liveBoard } from "./live.js";
 import { gamesInWeek, loadProjections, fantasyPoints } from "./data.js";
 import { get } from "./api.js";
 import { team, table, pct, f1, heatColor, esc, rec } from "./ui.js";
@@ -12,7 +13,8 @@ export async function render(root, m) {
   const models = teamModels(m, pp);
   const bracket = m.completedWeeks.some((x) => x >= m.playoffStart) || m.completedReg.length >= m.regWeeks
     ? await get(`/league/${m.league.league_id}/winners_bracket`).catch(() => []) : [];
-  const res = simulate(m, { models, bracket });
+  const lb = w && w < m.playoffStart ? await liveBoard(m).catch(() => null) : null;
+  const res = simulate(m, { models, bracket, live: lb?.teams });
   const T = m.teamById; const tl = res.tally;
   const rows = m.standings.map((r) => ({ ...r, ...tl[r.rid], mu: models[r.rid].mu, sdv: models[r.rid].sd }));
   const fmt = (x) => (x >= 0.9995 ? `<span class="pos"><b>✓ Clinched</b></span>` : x <= 0.0005 ? `<span class="neg">✗ Out</span>` : `<b>${pct(x, x < 0.01 ? 1 : 0)}</b>`);
@@ -22,9 +24,9 @@ export async function render(root, m) {
 
   root.innerHTML = `<h1>What are the chances?</h1>
   <p class="mut sm">${res.runs.toLocaleString()} simulated seasons. Each team's weekly score is drawn from its own scoring profile (season average blended with the last 3 weeks, pulled toward the league average early in the year)${pp ? `, with this week shifted toward Sleeper's projections for each current lineup` : ""}. Playoff spots follow league rules: top ${nP === 7 ? "6 by record + the points leader (or 7th record)" : nP} make it, ${res.byes} bye${res.byes === 1 ? "" : "s"}.</p>
-  ${games.length && w < m.playoffStart ? `<h2>Week ${w} win chances</h2><div class="grid g2">${games.map((g) => { const p = winProb(models, g.a, g.b);
+  ${games.length && w < m.playoffStart ? `<h2>Week ${w} win chances${lb?.started ? " (live)" : ""}</h2><div class="grid g2">${games.map((g) => { const lg = lb?.games.find((x) => x.a === g.a && x.b === g.b) || lb?.games.find((x) => x.a === g.b && x.b === g.a); const p = lg ? (lg.a === g.a ? lg.p : 1 - lg.p) : winProb(models, g.a, g.b);
     return `<div class="card"><div class="mrow">${team(T[g.a])}<span class="s">${pct(p)}</span></div><div class="mrow">${team(T[g.b])}<span class="s">${pct(1 - p)}</span></div>
-      <div class="meter" style="margin-top:8px"><i style="left:0;width:${p * 100}%"></i></div><div class="row sm" style="justify-content:space-between"><b>${pct(p)}</b><span class="xs mut">${pp ? `proj ${f1(models[g.a].weekMu)} – ${f1(models[g.b].weekMu)}` : ""}</span><b>${pct(1 - p)}</b></div></div>`; }).join("")}</div>` : ""}
+      <div class="meter" style="margin-top:8px"><i style="left:0;width:${p * 100}%"></i></div><div class="row sm" style="justify-content:space-between"><b>${pct(p)}</b><span class="xs mut">${lb ? `proj ${f1(lb.teams[g.a].expected)} – ${f1(lb.teams[g.b].expected)}` : pp ? `proj ${f1(models[g.a].weekMu)} – ${f1(models[g.b].weekMu)}` : ""}</span><b>${pct(1 - p)}</b></div></div>`; }).join("")}</div>` : ""}
   <h2>Season odds</h2>
   <div class="card">${table([
     { label: "Team", f: (r) => team(T[r.rid]), s: (r) => T[r.rid].name },

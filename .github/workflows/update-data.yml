@@ -5,6 +5,8 @@ on:
     - cron: "17 11 * * *"   # daily ~5am Mountain
     - cron: "17 9 * * 2"    # Tuesday early morning, after Monday Night Football
   workflow_dispatch: {}
+  push:
+    paths: ["build_data.py", ".github/workflows/update-data.yml"]
 
 permissions:
   contents: write
@@ -17,7 +19,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install nflreadpy polars requests
+      - run: pip install nflreadpy polars requests lxml
       - run: python build_data.py
         env:
           SCORING: ppr    # ppr | half | std — match your league for ECR

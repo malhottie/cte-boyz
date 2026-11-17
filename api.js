@@ -14,8 +14,8 @@ function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch
  * persist: store in localStorage forever (use only for finished seasons / immutable data)
  * ttl: seconds to keep a localStorage copy (for slow-changing data)
  */
-export async function get(path, { persist = false, ttl = 0 } = {}) {
-  if (mem.has(path)) return mem.get(path);
+export async function get(path, { persist = false, ttl = 0, fresh = false } = {}) {
+  if (!fresh && mem.has(path)) return mem.get(path);
   const p = (async () => {
     if (isMock()) {
       if (!mockApi) mockApi = await import("./mock.js");

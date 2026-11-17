@@ -5,6 +5,7 @@ Writes:
   data/players.json   slim Sleeper player DB (so browsers don't download Sleeper's 5 MB file)
   data/advanced.json  EPA/play, CPOE, aDOT, yards per team pass attempt (nflverse play-by-play)
   data/ecr.json       FantasyPros rest-of-season expert consensus rankings
+  data/adp.json       FantasyPros consensus ADP with per-platform columns (ESPN, Sleeper, CBS, RTSports, Fantrax)
 
 Each part fails independently; the site falls back gracefully when a file is missing.
 """
@@ -108,24 +109,93 @@ def build_ecr():
     if not m:
         raise RuntimeError("ecrData not found on FantasyPros page (layout changed?)")
     data = json.loads(m.group(1))
-    # map FantasyPros ids → Sleeper ids
-    fp2sl, name2sl = {}, {}
-    try:
-        import nflreadpy as nfl
-        for r in nfl.load_ff_playerids().select(["fantasypros_id", "sleeper_id", "name", "position"]).iter_rows(named=True):
-            if r["sleeper_id"]:
-                sl = str(int(float(r["sleeper_id"])))
-                if r["fantasypros_id"]:
-                    fp2sl[str(int(float(r["fantasypros_id"])))] = sl
-                name2sl[(norm(r["name"]), r["position"])] = sl
-    except Exception as e:
-        print("id map unavailable:", e)
+    fp2sl, name2sl = id_maps()
     out = {}
     for p in data.get("players", []):
         sl = fp2sl.get(str(p.get("player_id"))) or name2sl.get((norm(p.get("player_name")), p.get("player_position_id")))
         if sl:
             out[sl] = {"rank": p.get("rank_ecr"), "pos_rank": p.get("pos_rank"), "tier": p.get("tier"), "name": p.get("player_name")}
     write("ecr.json", {"source": url, "updated": now, "players": out})
+
+
+_MAPS = None
+def id_maps():
+    """FantasyPros id → Sleeper id, and (normalized name, position) → Sleeper id."""
+    global _MAPS
+    if _MAPS is None:
+        fp2sl, name2sl = {}, {}
+        try:
+            import nflreadpy as nfl
+            for r in nfl.load_ff_playerids().select(["fantasypros_id", "sleeper_id", "name", "position"]).iter_rows(named=True):
+                if r["sleeper_id"]:
+                    sl = str(int(float(r["sleeper_id"])))
+                    if r["fantasypros_id"]:
+                        fp2sl[str(int(float(r["fantasypros_id"])))] = sl
+                    name2sl[(norm(r["name"]), r["position"])] = sl
+        except Exception as e:
+            print("id map unavailable:", e)
+        _MAPS = (fp2sl, name2sl)
+    return _MAPS
+
+
+# ---------------------------------------------------------------- ADP (FantasyPros consensus + per-platform)
+def build_adp():
+    from lxml import html as LH
+    slug = {"ppr": "ppr-overall", "half": "half-point-ppr-overall", "std": "overall"}[SCORING]
+    url = f"https://www.fantasypros.com/nfl/adp/{slug}.php"
+    page = requests.get(url, headers=UA, timeout=60).text
+    doc = LH.fromstring(page)
+    fp2sl, name2sl = id_maps()
+    keymap = [("sleeper", "sleeper"), ("espn", "espn"), ("cbs", "cbs"), ("rts", "rtsports"), ("fantrax", "fantrax"),
+              ("yahoo", "yahoo"), ("nfl", "nfl"), ("ffc", "ffc"), ("avg", "avg")]
+    best = None
+    for t in doc.xpath("//table"):
+        heads = [re.sub(r"[^a-z]", "", th.text_content().lower()) for th in t.xpath(".//thead//th")]
+        if "avg" in heads and len(t.xpath(".//tbody/tr")) > 50:
+            best = (t, heads)
+            break
+    if not best:
+        raise RuntimeError("ADP table not found; tables seen: " + str([[th.text_content().strip() for th in t.xpath('.//thead//th')] for t in doc.xpath('//table')][:5]))
+    t, heads = best
+    print("ADP columns:", heads)
+    out, missed = {}, 0
+    for tr in t.xpath(".//tbody/tr"):
+        tds = tr.xpath("./td")
+        if len(tds) < len(heads):
+            continue
+        link = tr.xpath('.//a[contains(@class,"player-name")]') or tr.xpath('.//a[contains(@href,"/nfl/players/")]')
+        if not link:
+            continue
+        name = link[0].text_content().strip()
+        raw = LH.tostring(tr, encoding="unicode")
+        m = re.search(r"(?:fp-id-|mpb-player-|data-player-id=\"?|fp-player-id=\"?)(\d+)", raw)
+        row = {}
+        pos = ""
+        for h, td in zip(heads, tds):
+            txt = td.text_content().strip().replace(",", "")
+            if h.startswith("pos"):
+                pos = re.sub(r"\d+", "", txt).upper()
+                row["pos_rank"] = txt
+            for needle, key in keymap:
+                if h == needle or (needle != "nfl" and needle in h and h != "avg" and needle != "avg"):
+                    try:
+                        row[key] = float(txt)
+                    except ValueError:
+                        pass
+        if pos in ("DST", "D/ST"):
+            pos = "DEF"
+        sl = (fp2sl.get(m.group(1)) if m else None) or name2sl.get((norm(name), pos))
+        if not sl or "avg" not in row:
+            missed += 1
+            continue
+        row["name"] = name
+        out[sl] = row
+    title = doc.xpath("//title/text()")
+    yr = re.search(r"20\d\d", " ".join(title) + " " + " ".join(doc.xpath("//h1//text()")))
+    print(f"ADP: matched {len(out)} players, {missed} unmatched")
+    if len(out) < 100:
+        raise RuntimeError(f"only {len(out)} ADP rows matched; not writing")
+    write("adp.json", {"source": url, "updated": now, "season": int(yr.group(0)) if yr else None, "players": out})
 
 
 def norm(s):
@@ -137,7 +207,7 @@ def norm(s):
 if __name__ == "__main__":
     season, _ = season_now()
     ok = True
-    for name, fn in [("players", build_players), ("advanced", lambda: build_advanced(season)), ("ecr", build_ecr)]:
+    for name, fn in [("players", build_players), ("advanced", lambda: build_advanced(season)), ("ecr", build_ecr), ("adp", build_adp)]:
         try:
             fn()
         except Exception as e:  # keep going; site handles missing files

@@ -3,13 +3,14 @@ import { get } from "./api.js";
 import { CONFIG } from "./config.js";
 import { CHALLENGES, runChallenge } from "./challenges.js";
 import { teamModels, winProb, projectedTeamPoints } from "./sim.js";
+import { liveBoard } from "./live.js";
 import { team, av, esc, f1, f2, pct, rec, weekSelect, player } from "./ui.js";
 
 const pick = (arr, seed) => arr[Math.abs(seed) % arr.length];
 
 export async function render(root, m, arg) {
   const weeks = m.completedWeeks;
-  if (!weeks.length) { root.innerHTML = `<div class="card"><h2>No games yet</h2><p class="mut">The recap shows up once Week 1 is final.</p></div>${await upcoming(m)}`; return; }
+  if (!weeks.length) { root.innerHTML = `<div id="live"></div><div class="card"><h2>No recap yet</h2><p class="mut">The recap shows up once Week 1 is final.</p></div>${await nextWeek(m)}`; startLive(root, m); return; }
   const w = +arg || weeks.at(-1);
   const T = m.teamById;
   const gs = gamesInWeek(m, w);
@@ -44,7 +45,8 @@ export async function render(root, m, arg) {
   ], w);
 
   root.innerHTML = `
-  <div class="row" style="margin-bottom:8px"><h1 class="sp" style="margin:0">Week ${w} Recap</h1>${weekSelect("wk", weeks, w)}</div>
+  <div id="live"></div>
+  <div class="row" style="margin:18px 0 8px"><h1 class="sp" style="margin:0">Week ${w} Recap</h1>${weekSelect("wk", weeks, w)}</div>
   <div class="hero"><div class="sm mut">THE HEADLINE</div><div style="font:700 22px var(--f-d)">${headline}</div>
     <div class="sm mut" style="margin-top:6px">League median: <b>${f1(med)}</b> · ${gs.length} games · ${trades.length} trade${trades.length === 1 ? "" : "s"} · ${(tx || []).filter((t) => t.status === "complete" && t.type !== "trade").length} waiver/FA moves</div></div>
   ${chRes && chRes.status === "final" ? `<div class="card" style="border-color:var(--gold)"><div class="row"><span style="font-size:24px">🏆</span><div class="sp"><div class="t sm mut">WEEKLY CHALLENGE · ${esc(ch.name)}</div><div class="sm">${esc(ch.desc)}</div></div>
@@ -65,7 +67,8 @@ export async function render(root, m, arg) {
   </div>
   <h2>Matchups</h2>
   <div class="grid g2">${margins.map((g) => matchupCard(m, g, ss, w)).join("")}</div>
-  ${await upcoming(m)}`;
+  ${await nextWeek(m)}`;
+  startLive(root, m);
   document.getElementById("wk").onchange = (e) => (location.hash = "home-" + e.target.value);
 }
 
@@ -81,14 +84,38 @@ function matchupCard(m, g, ss, w) {
     <div class="blurb">${blurb}</div></div>`;
 }
 
-async function upcoming(m) {
-  const w = m.liveWeek; if (!w || w >= m.playoffStart) return "";
+// ---------- Current week: live scores + live win chances ----------
+function startLive(root, m) {
+  const box = root.querySelector("#live"); if (!box || !m.liveWeek) return;
+  let timer = null;
+  const draw = async (fresh) => {
+    if (!document.body.contains(box)) { clearInterval(timer); return; }
+    const lb = await liveBoard(m, { fresh }).catch(() => null);
+    if (!lb || !lb.games.length) { box.innerHTML = ""; return; }
+    const T = m.teamById;
+    const status = lb.allFinal ? `<span class="pill">All games final</span>` : lb.started ? `<span class="pill r">● LIVE</span>` : `<span class="pill y">Kicks off soon</span>`;
+    const side = (rid, pts, p, lead) => { const t = lb.teams[rid]; const left = t.toPlay + t.inPlay;
+      return `<div class="mrow">${team(T[rid])}<span class="xs mut" style="text-align:right">${left ? `${t.inPlay ? `${t.inPlay} playing · ` : ""}${t.toPlay} to play<br>proj ${f1(t.expected)}` : "done"}</span><span class="s ${lead ? "w" : ""}">${f2(pts)}</span></div>`; };
+    box.innerHTML = `<div class="row" style="margin-bottom:8px"><h1 class="sp" style="margin:0">Week ${lb.week} ${lb.started ? "Scores" : "Matchups"}</h1>${status}</div>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr))">${lb.games.map((g) => `<div class="card">${side(g.a, g.pa, g.p, g.pa > g.pb)}${side(g.b, g.pb, 1 - g.p, g.pb > g.pa)}
+        <div class="meter" style="margin-top:8px"><i style="left:0;width:${g.p * 100}%"></i></div>
+        <div class="row xs" style="justify-content:space-between;margin-top:3px"><b>${pct(g.p)}</b><span class="mut">${g.final ? "final" : "win chance"}</span><b>${pct(1 - g.p)}</b></div></div>`).join("")}</div>
+      <p class="note">Win chances use each lineup's points so far plus Sleeper projections for players still to play${lb.hasClock ? ", scaled by time left in their NFL games" : ""}. Updates every minute.</p>`;
+    if (lb.allFinal) clearInterval(timer);
+  };
+  draw(false);
+  timer = setInterval(() => draw(true), 60000);
+  addEventListener("hashchange", () => clearInterval(timer), { once: true });
+}
+
+// ---------- Next week: minimalist preview ----------
+async function nextWeek(m) {
+  const w = (m.liveWeek || 0) + 1; if (!m.liveWeek || w >= m.playoffStart) return "";
   const gs = gamesInWeek(m, w); if (!gs.length) return "";
   const proj = await loadProjections(m.season, w);
   const pp = projectedTeamPoints(m, w, proj, (s) => fantasyPoints(m, s));
   const models = teamModels(m, pp);
-  return `<h2>Week ${w} Preview</h2><div class="grid g2">${gs.map((g) => { const p = winProb(models, g.a, g.b);
-    return `<div class="card"><div class="mrow">${team(m.teamById[g.a])}<span class="s">${pct(p)}</span></div><div class="mrow">${team(m.teamById[g.b])}<span class="s">${pct(1 - p)}</span></div>
-      <div class="meter" style="margin-top:8px"><i style="left:0;width:${p * 100}%"></i></div>
-      <div class="row xs" style="justify-content:space-between;margin-top:3px"><b>${pct(p)}</b><span class="mut">${pp ? `proj ${f1(pp[g.a])} – ${f1(pp[g.b])}` : "win chance"}</span><b>${pct(1 - p)}</b></div></div>`; }).join("")}</div>`;
+  return `<h1 style="margin-top:18px">Week ${w} Preview</h1><div class="card">${gs.map((g) => { const p = winProb(models, g.a, g.b); const A = m.teamById[g.a], B = m.teamById[g.b];
+    return `<div class="row sm" style="padding:7px 0;border-bottom:1px solid var(--line);flex-wrap:nowrap"><a href="#team-${A.rosterId}" style="flex:1;text-align:right;color:inherit;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${esc(A.name)}</b></a><span class="${p >= 0.5 ? "pos" : "mut"}" style="width:38px;text-align:right">${pct(p)}</span><span class="mut xs">vs</span><span class="${p < 0.5 ? "pos" : "mut"}" style="width:38px">${pct(1 - p)}</span><a href="#team-${B.rosterId}" style="flex:1;color:inherit;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${esc(B.name)}</b></a></div>`; }).join("")}
+    <p class="note">Early win chances from each team's scoring profile${pp ? " and Sleeper's projections for current lineups" : ""}.</p></div>`;
 }

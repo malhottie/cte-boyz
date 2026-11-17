@@ -1,5 +1,5 @@
 // Keeper cost calculator implementing the league's keeper rules.
-import { get } from "./api.js";
+import { get, local } from "./api.js";
 import { CONFIG } from "./config.js";
 import { loadHistory, pName, pPos, futurePicks } from "./data.js";
 import { team, esc, player, table } from "./ui.js";
@@ -22,6 +22,12 @@ export async function render(root, m) {
   const tx = (await Promise.all(wks.map((w) => get(`/league/${m.league.league_id}/transactions/${w}`).catch(() => [])))).flat().filter((x) => x.status === "complete").sort((a, b) => a.created - b.created);
   let adp = {}; try { adp = JSON.parse(localStorage.getItem("keepers:adp") || "{}"); } catch {}
   adp = { ...CONFIG.ADP_ROUNDS, ...adp };
+  // Consensus ADP (FantasyPros) with per-platform columns; the league rule keys off Sleeper's ADP
+  const adpData = await local("data/adp.json"); const AP = adpData?.players || null; const nT = m.numTeams || 12;
+  const pickOf = (pid) => (AP?.[pid] ? AP[pid].sleeper ?? AP[pid].avg : null);
+  const adpNote = (pid) => { const x = AP?.[pid]; if (!x) return ""; const src = x.sleeper != null ? `Sleeper ADP ${x.sleeper}` : `consensus ADP ${x.avg} (no Sleeper ADP)`;
+    const others = [["consensus", x.sleeper != null ? x.avg : null], ["ESPN", x.espn], ["CBS", x.cbs], ["RTSports", x.rtsports], ["Fantrax", x.fantrax]].filter(([, v]) => v != null).map(([k, v]) => `${k} ${v}`).join(", ");
+    return `${src}${others ? "; " + others : ""}`; };
 
   const yearsKept = (pid, ownerId) => { let n = 0; for (let i = 0; i < hist.length; i++) { const p = (picksBySeason[i] || []).find((x) => x.player_id === pid);
       const pOwner = p && (p.picked_by || hist[i].ownerOf(p.roster_id)); if (p && p.is_keeper && pOwner === ownerId) n++; else break; } return n; };
@@ -32,15 +38,18 @@ export async function render(root, m) {
     const lastAdd = [...tx].reverse().find((x) => x.adds && x.adds[pid] === rid);
     const draftedBy = pick ? (pick.picked_by || ownerByRid[pick.roster_id]) : null;
     const how = lastAdd ? lastAdd.type : pick && draftedBy === ownerId ? "drafted" : pick ? "trade" : "waiver";
-    const adpR = adp[pid] != null ? Math.ceil(+adp[pid]) : null;
+    const manual = adp[pid] != null; const pk = pickOf(pid);
+    const adpR = manual ? Math.ceil(+adp[pid]) : pk != null ? Math.ceil(pk / nT) : null;
     if (CONFIG.SEASON_ENDING_FA[pid] != null) {
       const dr = CONFIG.SEASON_ENDING_FA[pid]; let c = dr >= 10 ? 10 : dr >= 6 ? 7 : 4; let note = `Season-ending-injury FA (drafted R${dr})`;
       if (adpR && adpR > c) { c = Math.ceil(1.5 * adpR); note += `; ADP R${adpR} is later than bracket → 1.5× ADP`; }
       return { ok: true, cost: Math.min(rounds, c), how: "IR pickup", note };
     }
     if (how === "waiver" || how === "free_agent" || !pick) {
-      if (!adpR) return { ok: null, cost: null, how: how === "free_agent" ? "free agent" : "waiver", note: "Needs next season's Sleeper ADP (2× ADP round)" };
-      const c = 2 * adpR; return { ok: c <= rounds, cost: Math.min(rounds, c), how: "waiver", note: `2 × ADP round ${adpR}${c > rounds ? " (past the last round)" : ""}` };
+      const hw = how === "free_agent" ? "free agent" : "waiver";
+      if (!adpR && AP) return { ok: true, cost: rounds, how: hw, note: `Not in the ADP list (undrafted) → last round` };
+      if (!adpR) return { ok: null, cost: null, how: hw, note: "Needs Sleeper ADP (2× ADP round)" };
+      const c = 2 * adpR; return { ok: true, cost: Math.min(rounds, c), how: hw, note: `2 × ADP round ${adpR}${c > rounds ? " → capped at the last round" : ""} · ${manual ? "ADP entered by hand" : adpNote(pid)}` };
     }
     // drafted or traded-for
     const kept = yearsKept(pid, draftedBy || ownerId);
@@ -59,7 +68,7 @@ export async function render(root, m) {
 
   root.innerHTML = `<h1>Keepers</h1>
   <div class="card sm"><b>Rules applied:</b> max 2 keepers (3 for the Consolation Bowl winner), never 2 at the same position · cost = 1 round earlier than last year's cost · kept at most 2 seasons · players drafted in rounds 1–2 can't be kept · waiver pickups cost 2× next season's Sleeper ADP · traded players carry their original draft value · season-ending-injury FA pickups use the 4th/7th/10th brackets. Your pick in the cost round is skipped at the draft.
-  <p class="note">Estimates. Sleeper's public API has no ADP, so enter ADP rounds for waiver pickups below (or in config). Commissioners have the final say.</p></div>
+  <p class="note">${adpData ? `ADP: FantasyPros consensus of ESPN, CBS, RTSports, Fantrax and Sleeper${adpData.season ? ` (${adpData.season} drafts` : " ("}, updated ${new Date(adpData.updated).toLocaleDateString()}). Costs use the <b>Sleeper</b> column, as the rule says, and fall back to the consensus when Sleeper has no number. ADP pick ÷ ${nT} teams = round. The rule uses <i>next</i> season's ADP, so these waiver costs are a preview until ${m.season + 1} ADP exists; the nightly update switches over by itself.` : "ADP data hasn't loaded yet, so enter ADP rounds for waiver pickups below (or in config)."} Estimates only. Commissioners have the final say.</p></div>
   <label class="sm"><input type="checkbox" id="cons"> Consolation Bowl winner gets a 3rd keeper:</label> <select id="consT"><option value="">–</option>${m.teams.map((t) => `<option value="${t.rosterId}">${esc(t.name)}</option>`).join("")}</select>
   <div class="grid g2" style="margin-top:12px">${data.map(({ t, rows }) => `<div class="card" data-rid="${t.rosterId}"><div class="row">${team(t)}<span class="sp"></span><span class="sm" id="sum-${t.rosterId}"></span></div>
     ${rows.map((r) => `<div class="plr"><input type="checkbox" data-k="${t.rosterId}" value="${r.pid}" ${r.ok === false ? "disabled" : ""} ${(sel[t.rosterId] || []).includes(r.pid) ? "checked" : ""}>
