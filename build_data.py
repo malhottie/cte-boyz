@@ -160,13 +160,13 @@ def build_adp():
         pos = re.sub(r"\d+", "", pos_rank).upper()
         pos = "DEF" if pos in ("DST", "D/ST") else pos
         sl = fp2sl.get(str(pl.get("id") or r.get("id"))) or name2sl.get((norm(pl.get("name")), pos))
-        if not sl or not isinstance(r.get("avg"), (int, float)):
+        if not sl or num(r.get("avg")) is None:
             missed += 1
             continue
         row = {"name": pl.get("name"), "pos_rank": pos_rank}
         for col, key in keyof.items():
-            if key and isinstance(r.get(col), (int, float)):
-                row[key] = r[col]
+            if key and num(r.get(col)) is not None:
+                row[key] = num(r[col])
         out[sl] = row
     yr = re.search(r"<title>[^<]*?(20\d\d)", page)
     print(f"ADP: {len(rows)} rows, matched {len(out)}, unmatched {missed}; columns {labels}")
@@ -174,6 +174,13 @@ def build_adp():
         raise RuntimeError(f"only {len(out)} ADP rows matched; not writing")
     write("adp.json", {"source": url, "updated": now, "season": int(yr.group(1)) if yr else None,
                        "platforms": [v for v in labels.values()], "players": out})
+
+
+def num(v):
+    try:
+        return round(float(str(v).replace(",", "")), 1)
+    except (TypeError, ValueError):
+        return None
 
 
 def norm(s):
