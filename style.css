@@ -154,7 +154,7 @@ select:focus,input:focus{outline:none;border-color:var(--acc);box-shadow:var(--g
 .posQB{color:#ff4fa0}.posRB{color:#00f0c8}.posWR{color:#3fb6ff}.posTE{color:#ffad3b}.posK{color:#b48cff}.posDEF{color:#9fb1c6}
 
 /* ---------- draft race ---------- */
-#race{width:100%;display:block;touch-action:none;border:1px solid var(--line2);box-shadow:0 0 0 1px rgba(0,240,255,.15),0 0 30px rgba(0,240,255,.12)}
+#race{width:100%;display:block;background:#030b0a;touch-action:none;border:1px solid var(--line2);box-shadow:0 0 0 1px rgba(0,240,255,.15),0 0 30px rgba(0,240,255,.12)}
 .ticker{font:600 15px var(--f-m);color:var(--gold);min-height:24px;letter-spacing:.5px;text-shadow:0 0 8px rgba(245,197,66,.5)}
 .res li{padding:4px 0;font-family:var(--f-d);font-size:16px}
 
