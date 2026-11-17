@@ -1,0 +1,33 @@
+{
+ "status": 200,
+ "len": 335320,
+ "title": [
+  "Average Draft Position (ADP) - PPR Leagues 2026 | FantasyPros"
+ ],
+ "tables": [
+  [
+   "",
+   "Expert",
+   "Site",
+   "Date",
+   5
+  ]
+ ],
+ "vars": [
+  "dataLayer",
+  "tickerData",
+  "registrationModule",
+  "leagueSync",
+  "upgradeModule",
+  "featuredTools",
+  "sideContentOffers",
+  "sideContentStartModule",
+  "linksData"
+ ],
+ "maps": [
+  4680,
+  6418
+ ],
+ "table_snip": "<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" id=\"experts\" class=\"table table-bordered table-full table-striped table-hover\">\n            <caption class=\"hidden-aria\">Pick Experts Modal</caption>\n            <thead>\n                <tr>\n                    <th class=\"sorter-false\" style=\"width:20px;\">\n                        <input type=\"checkbox\" id=\"select-all\" name=\"select-all\"  checked = checked value=\"\"  checked=\"checked\">\n                    </th>\n                    <th>Expert</th>\n                    <th>Site</th>\n                                        <th style=\"width:50px;\">Date</th>\n                </tr>\n            </thead>\n            <tbody>\n                <tr><td><input type=\"checkbox\" name=\"expert[]\" value=\"79\" checked=\"checked\" class=\"expert default recent\" />\n</td><td><a href=\"/experts/espn-adp.php\">ADP</a></td><td><a href=\"https://fantasy.espn.com/baseball/livedraftresults\" target=\"_blank\" onClick=\"ga('send', 'event', 'Site', 'ESPN', 'NFL Rankings');\">ESPN</a></td><td data-sort=\"1788825600\">9/07</td></tr>\n<tr><td><input type=\"checkbox\" name=\"expert[]\" value=\"80\" checked=\"checked\" class=\"expert default recent\" />\n</td><td><a href=\"/experts/cbssports-adp.php\">ADP</a></td><td><a href=\"http://fantasynews.cbssports.com/fantasybaseball/draft/averages/both/roto/all\" target=\"_blank\" onClick=\"ga('send', 'event', 'Site', 'CBS Sports', 'NFL Rankings');\">CBS Sports</a></td><td data-sort=\"1788825600\">9/07</td></tr>\n<tr><td><input type=\"checkbox\" name=\"expert[]\" va",
+ "player_snip": "em}.reports__filter-divider{background:#e2e7ee;height:2.4rem;width:.1rem}.reports__conditional-filter{align-items:center;display:flex;flex-wrap:wrap;gap:1rem}.reports__filter-apply{flex-shrink:0;min-width:8rem}.reports__content{display:flex;flex-direction:column;gap:1.6rem}.reports__table{background:#fff;overflow:auto}.reports__table .mcu-table__head{font-size:1.1rem;font-weight:700;white-space:nowrap}.reports__table .mcu-table__header-group{white-space:nowrap}.reports__table .mcu-table__cell{font-size:1.2rem;font-weight:500;white-space:nowrap}@media screen and (min-width: 668px){.reports__table .mcu-table__cell{white-space:normal}}.reports__table-empty{color:#525a67;font-size:1.2rem;margin:1.6rem;text-align:center}.reports .mcu-table__cell:first-child{font-weight:500;white-space:nowrap}.reports .mcu-table__cell a{color:#0769de;font-size:1.2rem;font-weight:500;text-decoration:none}.reports .mcu-table__cell a:hover{text-decoration:underline}.reports__player-cell{display:inline-flex;align-items:center;gap:.4rem;white-space:nowrap}.reports__player-link{color:#0769de;font-weight:500;text-decoration:none;white-space:nowrap}.reports__player-link:hover{text-decoration:underline}.reports__player-name--full{display:none}@media screen and (min-width: 668px){.reports__player-name--full{display:inline}}.reports__player-name--short{display:inline}@media screen and (min-width: 668px){.reports__player-name--short{display:none}}.reports__player-team{color:#525a67}.reports__player-note{color:#c9372c}.reports__table .mcu-table__cell-contents:has(.reports__extreme){flex-direction:column}.reports__table .mcu-table__cell-contents:has(.reports__extreme).mcu-table__cell-contents--align-left{align-items:flex-start}.reports__extreme{font-size:1.1rem;line-height:1.2}.reports__extreme--high{color:#164b35}.reports__extreme--low{color:#c9372c}.reports__stars{display:inline-flex;gap:.2rem}.reports__stars .fa-star{color:#0769de;font-size:1.2rem}.reports__star--empty{color:#e2e7ee !important}.reports .mcu-rating-meter{width:8rem}.reports .mcu-rating-meter__segment{margin-right:.3rem}.reports__mpb-controls{align-items:center;display:flex;flex-wrap:wrap;gap:1rem}.reports__mpb-selects{align-items:center;display:flex;gap:1.6rem;width:100%}@media screen and (min-width: 668px){.reports__mpb-selects{gap:.8rem;width:auto}}.reports__mpb-selects .reports__mpb-dropdown{width:14rem}@media screen and ("
+}
