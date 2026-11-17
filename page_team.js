@@ -101,8 +101,8 @@ export async function render(root, m, arg) {
     <div class="grid g2" style="margin-top:10px">${kv("Roster settings", rs)}${kv("Roster metadata", ro.metadata || {})}${kv("Owner", { user_id: t.user.user_id, username: t.user.username, display_name: t.user.display_name, is_owner: t.user.is_owner, is_bot: t.user.is_bot, avatar: t.user.avatar })}${kv("Owner metadata", t.user.metadata || {})}${kv("Roster", { roster_id: ro.roster_id, players: (ro.players || []).length, starters: starters.length, reserve: reserve.length, taxi: taxi.length, keepers: JSON.stringify(ro.keepers), co_owners: JSON.stringify(ro.co_owners) })}</div></details></div>`;
 
   chart("wk", { data: { labels: m.completedWeeks.map((w) => "W" + w), datasets: [
-    { type: "bar", label: "Score", data: scores, backgroundColor: results.map((x) => (x === null ? "#4da3ff" : x ? "#2ee6a6" : "#ff5c7a")), borderRadius: 5 },
-    { type: "line", label: "League median", data: meds, borderColor: "#ffd166", borderDash: [5, 4], pointRadius: 0, tension: 0.3 },
+    { type: "bar", label: "Score", data: scores, backgroundColor: results.map((x) => (x === null ? "#3fb6ff" : x ? "#00f0ff" : "#ff2e88")), borderRadius: 5 },
+    { type: "line", label: "League median", data: meds, borderColor: "#f5c542", borderDash: [5, 4], pointRadius: 0, tension: 0.3 },
     { type: "line", label: "Max possible", data: m.completedWeeks.map((w) => weekly.find((x) => x.w === w)?.optimal ?? null), borderColor: "#8e9ab3", pointRadius: 2, tension: 0.3 },
   ] }, options: { plugins: { legend: { labels: { boxWidth: 12 } } } } });
 }

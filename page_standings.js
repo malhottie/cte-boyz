@@ -46,7 +46,7 @@ export async function render(root, m, tab) {
       { label: "Luck", n: 1, tip: "Actual wins − expected wins", f: (r) => `<span class="${r.luck >= 0 ? "pos" : "neg"}">${sign(r.luck)}</span>`, s: (r) => r.luck },
     ], S)}</div>
     <div class="card"><h3>PF vs PA (crosshairs at league median)</h3><div style="height:320px"><canvas id="sc"></canvas></div></div>`;
-    chart("sc", { type: "scatter", data: { datasets: [{ data: S.map((r) => ({ x: r.pf, y: r.pa, n: T[r.rid].name })), pointRadius: 6, backgroundColor: "#2ee6a6" },
+    chart("sc", { type: "scatter", data: { datasets: [{ data: S.map((r) => ({ x: r.pf, y: r.pa, n: T[r.rid].name })), pointRadius: 6, backgroundColor: "#00f0ff" },
       { type: "line", data: [{ x: medPf, y: Math.min(...S.map((r) => r.pa)) }, { x: medPf, y: Math.max(...S.map((r) => r.pa)) }], borderColor: "#8e9ab3", borderDash: [4, 4], pointRadius: 0 },
       { type: "line", data: [{ x: Math.min(...S.map((r) => r.pf)), y: medPa }, { x: Math.max(...S.map((r) => r.pf)), y: medPa }], borderColor: "#8e9ab3", borderDash: [4, 4], pointRadius: 0 }] },
       options: { plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${c.raw.n ?? ""} PF ${f1(c.raw.x)} PA ${f1(c.raw.y)}` } } }, scales: { x: { title: { display: true, text: "Points For →" } }, y: { title: { display: true, text: "Points Against →" } } } } });

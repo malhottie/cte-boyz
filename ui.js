@@ -74,7 +74,7 @@ export function heatColor(v, lo = 0, hi = 1) {
 export function chart(canvasId, cfg) {
   setTimeout(() => {
     const el = document.getElementById(canvasId); if (!el || !window.Chart) return;
-    Chart.defaults.color = "#8e9ab3"; Chart.defaults.borderColor = "#2a3550"; Chart.defaults.font.family = "Inter";
+    Chart.defaults.color = "#7d93ab"; Chart.defaults.borderColor = "#1a2a3a"; Chart.defaults.font.family = '"JetBrains Mono", ui-monospace, monospace'; Chart.defaults.font.size = 11;
     cfg.options = { maintainAspectRatio: false, responsive: true, ...(cfg.options || {}) }; new Chart(el, cfg);
   });
 }

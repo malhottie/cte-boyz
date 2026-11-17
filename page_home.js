@@ -97,7 +97,7 @@ function startLive(root, m) {
     const side = (rid, pts, p, lead) => { const t = lb.teams[rid]; const left = t.toPlay + t.inPlay;
       return `<div class="mrow">${team(T[rid])}<span class="xs mut" style="text-align:right">${left ? `${t.inPlay ? `${t.inPlay} playing · ` : ""}${t.toPlay} to play<br>proj ${f1(t.expected)}` : "done"}</span><span class="s ${lead ? "w" : ""}">${f2(pts)}</span></div>`; };
     box.innerHTML = `<div class="row" style="margin-bottom:8px"><h1 class="sp" style="margin:0">Week ${lb.week} ${lb.started ? "Scores" : "Matchups"}</h1>${status}</div>
-      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr))">${lb.games.map((g) => `<div class="card">${side(g.a, g.pa, g.p, g.pa > g.pb)}${side(g.b, g.pb, 1 - g.p, g.pb > g.pa)}
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr))">${lb.games.map((g) => `<div class="card">${side(g.a, g.pa, g.p, g.pa > g.pb)}${side(g.b, g.pb, 1 - g.p, g.pb > g.pa)}
         ${winBar(T[g.a].name, T[g.b].name, g.p, g.final ? "final" : "")}</div>`).join("")}</div>
       <p class="note">Win chances use each lineup's points so far plus Sleeper projections for players still to play${lb.hasClock ? ", scaled by time left in their NFL games" : ""}. Updates every minute.</p>`;
     if (lb.allFinal) clearInterval(timer);

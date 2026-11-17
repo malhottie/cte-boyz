@@ -39,7 +39,7 @@ export async function render(root, m) {
     ctx.fillStyle = "#1f7a3a"; ctx.fillRect(0, 0, W, H);
     for (let k = 0; k < 10; k++) { ctx.fillStyle = k % 2 ? "#1d7236" : "#22803e"; ctx.fillRect(start + (goal - start) * k / 10, 0, (goal - start) / 10, H); }
     ctx.fillStyle = "#16552b"; ctx.fillRect(0, 0, EZ, H); ctx.fillStyle = "#8a1c1c"; ctx.fillRect(goal, 0, EZ, H);
-    ctx.save(); ctx.fillStyle = "rgba(255,255,255,.85)"; ctx.font = `800 ${Math.min(18, EZ * 0.55)}px Barlow Condensed`; ctx.textAlign = "center";
+    ctx.save(); ctx.fillStyle = "rgba(255,255,255,.85)"; ctx.font = `800 ${Math.min(18, EZ * 0.55)}px Rajdhani`; ctx.textAlign = "center";
     ctx.translate(W - EZ / 2, H / 2); ctx.rotate(Math.PI / 2); ctx.fillText("DRAFT DAY", 0, 6); ctx.restore();
     ctx.strokeStyle = "rgba(255,255,255,.75)"; ctx.lineWidth = 1.5;
     for (let k = 0; k <= 10; k++) { const x = start + (goal - start) * k / 10; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
@@ -60,7 +60,7 @@ export async function render(root, m) {
     ctx.strokeStyle = "#222"; ctx.lineWidth = 3.4 * s; ctx.beginPath(); ctx.moveTo(sw * 7 * s - 1, -1 * s); ctx.lineTo(sw * 7 * s + 3 * s, -1 * s); ctx.moveTo(-sw * 7 * s - 1, -1 * s); ctx.lineTo(-sw * 7 * s + 3 * s, -1 * s); ctx.stroke();
     // body / jersey
     ctx.fillStyle = r.color; ctx.beginPath(); ctx.roundRect(-6 * s, -27 * s, 12 * s, 15 * s, 3 * s); ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,.9)"; ctx.font = `800 ${8 * s}px Barlow Condensed`; ctx.textAlign = "center"; ctx.fillText(String(r.i + 1), 0, -16 * s);
+    ctx.fillStyle = "rgba(255,255,255,.9)"; ctx.font = `800 ${8 * s}px Rajdhani`; ctx.textAlign = "center"; ctx.fillText(String(r.i + 1), 0, -16 * s);
     // arms (one carries the ball)
     ctx.strokeStyle = r.color; ctx.lineWidth = 3 * s; ctx.beginPath(); ctx.moveTo(-4 * s, -24 * s); ctx.lineTo(-4 * s - sw * 6 * s, -16 * s); ctx.moveTo(4 * s, -24 * s); ctx.lineTo(9 * s, -19 * s); ctx.stroke();
     ctx.fillStyle = "#8b4513"; ctx.beginPath(); ctx.ellipse(10 * s, -19 * s, 3.4 * s, 2.2 * s, -0.5, 0, 7); ctx.fill();
@@ -78,7 +78,7 @@ export async function render(root, m) {
     // name tag + effects
     ctx.fillStyle = "rgba(0,0,0,.45)"; ctx.font = `700 ${Math.max(10, 11 * s)}px Inter`; ctx.textAlign = "left";
     const label = r.t.owner + (r.done != null ? `  #${r.done}` : ""); ctx.fillText(label, 4, r.i * laneH + 14);
-    if (r.state === "burst") { ctx.fillStyle = "#ffd166"; ctx.font = `800 ${12 * s}px Barlow Condensed`; ctx.fillText("⚡", cx - 22 * s, base - 30 * s); }
+    if (r.state === "burst") { ctx.fillStyle = "#ffd166"; ctx.font = `800 ${12 * s}px Rajdhani`; ctx.fillText("⚡", cx - 22 * s, base - 30 * s); }
   }
   const draw = (now) => { field(); runners.forEach((r) => sprite(r, now)); };
   const idle = (now) => { if (!running) { draw(now); raf = requestAnimationFrame(idle); } };
