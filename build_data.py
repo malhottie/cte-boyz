@@ -153,7 +153,10 @@ def build_adp():
         dbg = {"status": resp.status_code, "len": len(page), "title": doc.xpath("//title/text()"),
                "tables": [[th.text_content().strip() for th in t.xpath(".//thead//th")] + [len(t.xpath(".//tbody/tr"))] for t in doc.xpath("//table")],
                "vars": re.findall(r"var (\w+) = [\[{]", page)[:30], "maps": [len(fp2sl), len(name2sl)],
-               "table_snip": page[i:i + 1500] if i >= 0 else "", "player_snip": page[max(0, j - 1200):j + 1200] if j >= 0 else ""}
+               "gibbs": [page[max(0, k.start() - 700):k.start() + 900] for k in list(re.finditer("Gibbs", page))[:3]], "n_gibbs": len(re.findall("Gibbs", page)),
+               "scripts": [(sc.get("src") or "", sc.get("type") or "", sc.get("id") or "", len(sc.text or "")) for sc in doc.xpath("//script")],
+               "apis": sorted(set(re.findall(r"https?://[a-z0-9.-]*fantasypros\.com/[A-Za-z0-9_/.?=&%-]*(?:api|adp)[A-Za-z0-9_/.?=&%-]*", page)))[:40],
+               "big_inline": [(sc.text or "")[:300] for sc in doc.xpath("//script") if len(sc.text or "") > 20000][:6]}
         with open(os.path.join(OUT, "adp_debug.json"), "w") as f:
             json.dump(dbg, f, indent=1)
     except Exception as e:
